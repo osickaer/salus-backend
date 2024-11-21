@@ -1,16 +1,16 @@
-import { NestFactory, Reflector } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { MikroORM } from '@mikro-orm/core';
+import { NestFactory, Reflector } from "@nestjs/core";
+import { AppModule } from "./app.module";
+import { MikroORM } from "@mikro-orm/core";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const orm = app.get(MikroORM)
-  const migrator = orm.getMigrator();
-  await migrator.up();
-  const seeder = orm.getSeeder()
+  // const orm = app.get(MikroORM)
+  // const migrator = orm.getMigrator();
+  // await migrator.up();
+  // const seeder = orm.getSeeder()
   // await seeder.seed(DatabaseSeeder);
   // app.useLogger(new Logger(orm.em));
-  const reflector = app.get(Reflector);
+  // const reflector = app.get(Reflector);
   // app.useGlobalGuards(new JwtAuthGuard(reflector));
   // app.useGlobalFilters(new ZodFilter());
   app.enableShutdownHooks();
@@ -25,6 +25,6 @@ async function bootstrap() {
   //   const document = SwaggerModule.createDocument(app, config);
   //   SwaggerModule.setup('docs', app, document);
   // }
-  await app.listen(process.env.PORT || '3000', '0.0.0.0');
+  await app.listen(process.env.PORT || "3000", "0.0.0.0");
 }
 bootstrap();

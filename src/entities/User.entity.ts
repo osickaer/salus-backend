@@ -1,30 +1,30 @@
-import { Entity, ManyToOne, PrimaryKey, Property } from '@mikro-orm/core';
-import { v4 as uuid } from 'uuid';
-import { BaseEntity } from './BaseEntity.entity';
+import { Entity, PrimaryKey, Property, OneToMany } from "@mikro-orm/core";
+import { UserBodyWeights } from "./UserBodyWeights.entity";
 
-/**
- * Lowest level entity.
- */
+@Entity({ tableName: "users" })
+export class User {
+  @PrimaryKey({ type: "uuid", fieldName: "user_id" })
+  userId!: string;
 
+  @Property({ unique: true })
+  email!: string;
 
-export type SexEnum = "Male" | "Female" | "Other"
+  @Property({ type: "timestamp", nullable: true })
+  joinDate?: Date;
 
-@Entity()
-export class User extends BaseEntity {
+  @Property({ nullable: true })
+  fullName?: string;
 
-    @Property({unique: true })
-    email!: string
+  @Property({ type: "date", nullable: true })
+  birthdate?: Date;
 
-    @Property()
-    fullName!: string
+  @Property({ type: "number", nullable: true })
+  height?: number;
 
-    @Property()
-    birthdate!: Date
+  @Property({ nullable: true })
+  sex?: string;
 
-    @Property({})
-    height!: number
-
-    @Property()
-    sex!: SexEnum
-
+  // One-to-Many relationship with UserBodyWeight
+  @OneToMany(() => UserBodyWeights, (bodyWeight) => bodyWeight.user)
+  bodyWeights = new Array<UserBodyWeights>();
 }
