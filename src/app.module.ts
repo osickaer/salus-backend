@@ -20,6 +20,7 @@ import mikroOrmConfig from "./mikro-orm.config"; // Import the config file
     OpenaiModule,
     EntityModule,
     UserModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

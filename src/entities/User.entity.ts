@@ -1,5 +1,7 @@
 import { Entity, PrimaryKey, Property, OneToMany } from "@mikro-orm/core";
-import { UserBodyWeights } from "./UserBodyWeights.entity";
+import { UserBodyWeight } from "./UserBodyWeight.entity";
+import { Conversation } from "./Conversation.entity";
+import { ChatMessage } from "./ChatMessage.entity";
 
 @Entity({ tableName: "users" })
 export class User {
@@ -25,6 +27,14 @@ export class User {
   sex?: string;
 
   // One-to-Many relationship with UserBodyWeight
-  @OneToMany(() => UserBodyWeights, (bodyWeight) => bodyWeight.user)
-  bodyWeights = new Array<UserBodyWeights>();
+  @OneToMany(() => UserBodyWeight, (bodyWeight) => bodyWeight.user)
+  bodyWeights = new Array<UserBodyWeight>();
+
+  // One-to-Many relationship with Conversations
+  @OneToMany(() => Conversation, (conversation) => conversation.user)
+  conversations = new Array<Conversation>();
+
+  // One-to-Many relationship with Conversations
+  @OneToMany(() => ChatMessage, (chatMessage) => chatMessage.user)
+  chatMessages = new Array<ChatMessage>();
 }

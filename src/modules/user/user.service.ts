@@ -1,7 +1,7 @@
 import { EntityManager } from "@mikro-orm/postgresql";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { User } from "src/entities/User.entity";
-import { UserBodyWeights } from "src/entities/UserBodyWeights.entity";
+import { UserBodyWeight } from "src/entities/UserBodyWeight.entity";
 
 @Injectable()
 export class UserService {
@@ -19,10 +19,10 @@ export class UserService {
     return user;
   }
 
-  async getCurrentBodyWeight(userId: string): Promise<UserBodyWeights> {
+  async getCurrentBodyWeight(userId: string): Promise<UserBodyWeight> {
     // Find the user by ID
     const recentWeight = await this.em.findOne(
-      UserBodyWeights,
+      UserBodyWeight,
       { user: { userId } },
       { orderBy: { weightTimestamp: "DESC" } }
     ); // Order by timestamp descending);

@@ -1,7 +1,7 @@
 import { UserService } from "./user.service";
 import { Controller, Get, Param, Query } from "@nestjs/common";
 import { User } from "src/entities/User.entity";
-import { UserBodyWeights } from "src/entities/UserBodyWeights.entity";
+import { UserBodyWeight } from "src/entities/UserBodyWeight.entity";
 
 @Controller("user") // Base route: /user
 export class UserController {
@@ -16,10 +16,11 @@ export class UserController {
     return this.UserService.getUserById(userId);
   }
 
-  @Get("weights/current") // Matches /user/weights/current
+  @Get(":userId/weights/current") // Path: /user/:userId/weights/current
   async getUserCurrentWeight(
-    @Query("userId") userId: string // Extracts userId from query string
-  ): Promise<UserBodyWeights> {
+    @Param("userId") userId: string // Extract userId from path
+  ): Promise<UserBodyWeight> {
     return this.UserService.getCurrentBodyWeight(userId);
   }
+
 }
