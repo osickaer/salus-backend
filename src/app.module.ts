@@ -9,17 +9,18 @@ import { EntityModule } from "./modules/entity/entity.module";
 import { MikroOrmModule } from "@mikro-orm/nestjs";
 import { PostgreSqlDriver } from "@mikro-orm/postgresql";
 import { UserModule } from "./modules/user/user.module";
+import { AuthModule } from "./modules/auth/auth.module";
 import mikroOrmConfig from "./mikro-orm.config"; // Import the config file
 
 @Module({
   imports: [
     MikroOrmModule.forRoot(mikroOrmConfig),
-    ChatModule,
     GoalModule,
     MealModule,
     OpenaiModule,
     EntityModule,
     UserModule,
+    AuthModule,
     ChatModule,
   ],
   controllers: [AppController],

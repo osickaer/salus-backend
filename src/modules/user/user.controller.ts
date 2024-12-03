@@ -1,7 +1,8 @@
 import { UserService } from "./user.service";
-import { Controller, Get, Param, Query } from "@nestjs/common";
+import { Controller, Get, Param, Request, UseGuards } from "@nestjs/common";
 import { User } from "src/entities/User.entity";
 import { UserBodyWeight } from "src/entities/UserBodyWeight.entity";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 
 @Controller("user") // Base route: /user
 export class UserController {
@@ -11,16 +12,17 @@ export class UserController {
     return this.UserService.getGreeting();
   }
 
-  @Get(":userId") // Handles GET requests to /users/:id
-  async getUser(@Param("userId") userId: string): Promise<User> {
-    return this.UserService.getUserById(userId);
+  // Fetch details for the authenticated user (removes the need for userId in params)
+  @UseGuards(JwtAuthGuard)
+  @Get("me")
+  async getLoggedInUser(@Request() req): Promise<User> {
+    return this.UserService.getUserById(req.user.userId);
   }
 
-  @Get(":userId/weights/current") // Path: /user/:userId/weights/current
-  async getUserCurrentWeight(
-    @Param("userId") userId: string // Extract userId from path
-  ): Promise<UserBodyWeight> {
-    return this.UserService.getCurrentBodyWeight(userId);
+  // Fetch the current weight for the authenticated user
+  @UseGuards(JwtAuthGuard)
+  @Get("weights/current")
+  async getUserCurrentWeight(@Request() req): Promise<UserBodyWeight> {
+    return this.UserService.getCurrentBodyWeight(req.user.userId);
   }
-
 }

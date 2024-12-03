@@ -14,7 +14,12 @@ async function bootstrap() {
   // app.useGlobalGuards(new JwtAuthGuard(reflector));
   // app.useGlobalFilters(new ZodFilter());
   app.enableShutdownHooks();
-  app.enableCors();
+  // Enable CORS
+  app.enableCors({
+    origin: "*", // Use a specific origin in production
+    methods: "GET,POST,PUT,DELETE",
+    allowedHeaders: "Content-Type,Authorization",
+  });
   // if (process.env.NODE_ENV.includes('dev')) {
   //   const config = new DocumentBuilder()
   //     .setTitle('Salus Backend API')

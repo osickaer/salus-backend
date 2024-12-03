@@ -1,21 +1,30 @@
-import { ChatService } from './chat.service';
-import { Controller, Get, Param } from '@nestjs/common';
-import { ChatMessage } from 'src/entities/ChatMessage.entity';
-import { Conversation } from 'src/entities/Conversation.entity';
+import { ChatService } from "./chat.service";
+import { Controller, Get, Param, UseGuards, Request } from "@nestjs/common";
+import { ChatMessage } from "src/entities/ChatMessage.entity";
+import { Conversation } from "src/entities/Conversation.entity";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 
-@Controller('chat')
+@Controller("chat")
 export class ChatController {
-    constructor(private readonly ChatService: ChatService) {}
+  constructor(private readonly ChatService: ChatService) {}
 
-    @Get(':userId/conversations')
-    getUserConversations(@Param("userId") userId: string): Promise<Conversation[]> {
-        return this.ChatService.getUserConversations(userId);
-    }
+  // Fetch all conversations for the authenticated user
+  @UseGuards(JwtAuthGuard)
+  @Get("conversations")
+  async getUserConversations(@Request() req): Promise<Conversation[]> {
+    // Use userId from the JWT payload attached by JwtAuthGuard
+    return this.ChatService.getUserConversations(req.user.userId);
+  }
 
-    @Get('conversations/:conversationId/chatMessages')
-    getConversationChatMessages(
-        @Param("conversationId") conversationId: string
-    ): Promise<ChatMessage[]> {
-        return this.ChatService.getConversationChatMessages(conversationId);
-    }
+  @UseGuards(JwtAuthGuard)
+  @Get("conversations/:conversationId/chatMessages")
+  getConversationChatMessages(
+    @Request() req,
+    @Param("conversationId") conversationId: string
+  ): Promise<ChatMessage[]> {
+    return this.ChatService.getConversationChatMessages(
+      req.user.userId,
+      conversationId
+    );
+  }
 }
