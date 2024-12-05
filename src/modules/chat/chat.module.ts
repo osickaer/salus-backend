@@ -2,13 +2,13 @@ import { Module } from "@nestjs/common";
 import { ChatController } from "./chat.controller";
 import { ChatService } from "./chat.service";
 import { MikroOrmModule } from "@mikro-orm/nestjs";
-import { Conversation } from "src/entities/Conversation.entity";
-import { ChatMessage } from "src/entities/ChatMessage.entity";
+import { Conversations } from "src/entities/Conversations";
+import { ChatMessages } from "src/entities/ChatMessages";
 import { AuthModule } from "../auth/auth.module"; // Import AuthModule
 
 @Module({
   imports: [
-    MikroOrmModule.forFeature({ entities: [Conversation, ChatMessage] }), // Register entities
+    MikroOrmModule.forFeature({ entities: [Conversations, ChatMessages] }), // Register entities
     AuthModule, // Import AuthModule to provide RLSService
   ],
   controllers: [ChatController],

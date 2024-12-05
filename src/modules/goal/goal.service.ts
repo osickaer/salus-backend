@@ -1,25 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { EntityManager } from "@mikro-orm/postgresql";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { UserGoals } from "src/entities/UserGoals";
 
 @Injectable()
 export class GoalService {
+  constructor(private readonly em: EntityManager) {}
 
+  async getUserGoal(userId: string): Promise<UserGoals> {
+    const goal = await this.em.findOne(
+      UserGoals,
+      { user: userId },
+      { orderBy: { goalTimestamp: "DESC" } }
+    );
 
-    getPreviousUserChats(userId: string, conversiationId: string, numChats: number) {
-        // request messages from db
-        // for message in chat_data:
-        const messages: any = []
-        let formatted_messages = []
-        for (const message of messages) {
-            const content_sender = message['role'] == 'user' ? 'Athlete' : 'Salus'
-            formatted_messages.push({
-                'role': message['role'], 'content': `${message['chat_timestamp']} ${content_sender}: ${message['message']}`
-            })
-            
-        }
-
-        return formatted_messages
+    if (!goal) {
+      throw new NotFoundException(`Goal for user ID ${userId} not found`);
     }
 
-            
-
+    return goal;
+  }
 }

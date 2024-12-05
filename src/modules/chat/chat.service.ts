@@ -1,16 +1,16 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { EntityManager } from "@mikro-orm/postgresql";
-import { Conversation } from "src/entities/Conversation.entity";
-import { ChatMessage } from "src/entities/ChatMessage.entity";
+import { Conversations } from "src/entities/Conversations";
+import { ChatMessages } from "src/entities/ChatMessages";
 
 @Injectable()
 export class ChatService {
   constructor(private readonly em: EntityManager) {}
 
-  async getUserConversations(userId: string): Promise<Conversation[]> {
+  async getUserConversations(userId: string): Promise<Conversations[]> {
     const conversations = await this.em.find(
-      Conversation,
-      { user: { userId } },
+      Conversations,
+      { user: userId },
       {
         orderBy: { createdAt: "DESC" },
         limit: 7,
@@ -27,10 +27,10 @@ export class ChatService {
   async getConversationChatMessages(
     userId: string,
     conversationId: string
-  ): Promise<ChatMessage[]> {
+  ): Promise<ChatMessages[]> {
     const chatMessages = await this.em.find(
-      ChatMessage,
-      { conversation: { conversationId }, user: { userId } },
+      ChatMessages,
+      { conversation: { conversationId }, user: userId },
       {
         orderBy: { chatTimestamp: "ASC" },
       }
