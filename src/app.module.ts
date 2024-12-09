@@ -4,11 +4,12 @@ import { AppService } from "./app.service";
 import { ChatModule } from "./modules/chat/chat.module";
 import { GoalModule } from "./modules/goal/goal.module";
 import { MealModule } from "./modules/meal/meal.module";
-import { OpenaiModule } from "./modules/openai/openai.module";
 import { MikroOrmModule } from "@mikro-orm/nestjs";
 import { PostgreSqlDriver } from "@mikro-orm/postgresql";
 import { UserModule } from "./modules/user/user.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { AiModule } from "./modules/ai/ai.module";
+import { WorkoutModule } from "./modules/workout/workout.module";
 import mikroOrmConfig from "./mikro-orm.config"; // Import the config file
 
 @Module({
@@ -16,10 +17,11 @@ import mikroOrmConfig from "./mikro-orm.config"; // Import the config file
     MikroOrmModule.forRoot(mikroOrmConfig),
     GoalModule,
     MealModule,
-    OpenaiModule,
     UserModule,
     AuthModule,
     ChatModule,
+    AiModule,
+    WorkoutModule,
   ],
   controllers: [AppController],
   providers: [AppService],
