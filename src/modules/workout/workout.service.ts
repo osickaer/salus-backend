@@ -1,12 +1,13 @@
 import { EntityManager } from "@mikro-orm/postgresql";
 import { Injectable } from "@nestjs/common";
+import { StrengthExercises } from "src/entities/StrengthExercises";
 import { Workouts } from "src/entities/Workouts";
 
 @Injectable()
 export class WorkoutService {
   constructor(private readonly em: EntityManager) {}
 
-  async getWrokoutHistory(userId: string): Promise<any[]> {
+  async getWorkoutHistory(userId: string): Promise<any[]> {
     const sql = `
         select distinct
             w.workout_id,
@@ -25,5 +26,25 @@ export class WorkoutService {
     const workouts = await this.em.getConnection().execute(sql);
 
     return workouts || [];
+  }
+
+  async getStrengthExercises(): Promise<any[]> {
+    const exercises = await this.em.find(
+      StrengthExercises,
+      {},
+      {
+        fields: [
+          "exerciseName",
+          "force",
+          "primaryMuscles",
+          "category",
+          "images",
+          "priority",
+        ],
+        orderBy: { priority: "ASC" },
+      }
+    );
+
+    return exercises || [];
   }
 }

@@ -22,6 +22,13 @@ export class WorkoutController {
     @Request() req
   ): Promise<Partial<Workouts>[]> {
     // Use userId from the JWT payload attached by JwtAuthGuard
-    return this.WorkoutService.getWrokoutHistory(req.user.userId);
+    return this.WorkoutService.getWorkoutHistory(req.user.userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get("strengthExercises")
+  async getStrengthExercises(@Request() req): Promise<Partial<Workouts>[]> {
+    // Use userId from the JWT payload attached by JwtAuthGuard
+    return this.WorkoutService.getStrengthExercises();
   }
 }
