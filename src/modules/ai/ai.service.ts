@@ -1,15 +1,85 @@
+//src/modules/ai/ai.service.ts
+import { ChatOpenAI } from "@langchain/openai";
 import { Injectable } from "@nestjs/common";
 import { OpenAI } from "openai";
-import Configuration from "openai";
+import { GetNutrientAveragesTool } from "./tools/getNutritientAverages.tool";
+import { setContextVariable } from "@langchain/core/context";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { RunnableLambda, RunnableParallel } from "@langchain/core/runnables";
+import { AIMessage } from "@langchain/core/messages";
+import { GetGoalsTool } from "./tools/getGoals.tool";
+// import Configuration from "openai";
 
 @Injectable()
 export class AiService {
   private openai: OpenAI;
+  private llm: ChatOpenAI;
 
-  constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env["OPENAI_API_KEY"],
+  constructor(
+    private readonly nutrientTool: GetNutrientAveragesTool,
+    private readonly goalsTool: GetGoalsTool
+  ) {
+    // will be deprecated
+    // this.openai = new OpenAI({
+    //   apiKey: process.env["OPENAI_API_KEY"],
+    // });
+
+    this.llm = new ChatOpenAI({
+      model: "gpt-4o-mini",
+      temperature: 0,
     });
+  }
+
+  async generateChatResponse(input: {
+    userId: string;
+    userQuery: string;
+  }): Promise<any> {
+    const { userId, userQuery } = input;
+    const tools = [this.nutrientTool.tool, this.goalsTool.tool];
+
+    const toolsByName = {
+      getAvgNutrients: this.nutrientTool.tool,
+      getGoals: this.goalsTool.tool,
+    };
+
+    const handleRunTimeRequestRunnable = RunnableLambda.from(
+      async (params: { userId: string; query: string; llm: BaseChatModel }) => {
+        const { userId, query, llm } = params;
+        if (!llm.bindTools) {
+          throw new Error("Language model does not support tools.");
+        }
+        setContextVariable("userId", userId);
+
+        const llmWithTools = llm.bindTools(tools);
+        const modelResponse = await llmWithTools.invoke(query);
+        const toolCalls = modelResponse.tool_calls || [];
+
+        const toolExecutionChain = RunnableParallel.from(
+          toolCalls.map((toolCall) => {
+            const tool = toolsByName[toolCall.name];
+            if (!tool) {
+              throw new Error(`Tool "${toolCall.name}" not found.`);
+            }
+            return () => tool.invoke(toolCall.args);
+          })
+        );
+
+        return toolExecutionChain.invoke({});
+      }
+    );
+    // Example tool invocation
+
+    const toolResults = await handleRunTimeRequestRunnable.invoke({
+      userId: userId,
+      query: userQuery,
+      llm: this.llm,
+    });
+
+    // const result = await llmWithTools.invoke(userQuery);
+    // console.log("RESULT:\n", result);
+    // console.log("TOOL CALLS:\n", result.tool_calls);
+    // Placeholder for other logic (e.g., LLM calls)
+    return Object.values(toolResults).join("\n");
   }
 
   async getNutritionalContent(formattedInput: string): Promise<any> {

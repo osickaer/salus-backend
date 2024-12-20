@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { Conversations } from "src/entities/Conversations";
 import { ChatMessages } from "src/entities/ChatMessages";
+import { AiService } from "../ai/ai.service";
 
 @Injectable()
 export class ChatService {
-  constructor(private readonly em: EntityManager) {}
+  constructor(
+    private readonly em: EntityManager,
+    private readonly aiService: AiService
+  ) {}
 
   async getUserConversations(userId: string): Promise<Conversations[]> {
     const conversations = await this.em.find(
@@ -41,5 +45,38 @@ export class ChatService {
       return []; // Graceful handling for new users
     }
     return chatMessages;
+  }
+
+  async generateChatResponse(
+    userId: string,
+    conversationId: string,
+    userQuery: string
+  ): Promise<any> {
+    // Call the AI service to generate a response
+    const aiResponse = await this.aiService.generateChatResponse({
+      userId,
+      userQuery,
+    });
+
+    // Save user query and AI response to the database
+    // const newMessage = this.em.create(ChatMessages, {
+    //   conversation: conversationId,
+    //   user: userId,
+    //   message: userQuery,
+    //   sender: "user",
+    //   timestamp: new Date(),
+    // });
+
+    // const aiMessage = this.em.create(ChatMessages, {
+    //   conversation: conversationId,
+    //   user: userId,
+    //   message: aiResponse,
+    //   sender: "ai",
+    //   timestamp: new Date(),
+    // });
+
+    // await this.em.persistAndFlush([newMessage, aiMessage]);
+
+    return aiResponse;
   }
 }

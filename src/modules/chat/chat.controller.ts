@@ -1,5 +1,13 @@
 import { ChatService } from "./chat.service";
-import { Controller, Get, Param, UseGuards, Request } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  Request,
+} from "@nestjs/common";
 import { ChatMessages } from "src/entities/ChatMessages";
 import { Conversations } from "src/entities/Conversations";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -25,6 +33,21 @@ export class ChatController {
     return this.ChatService.getConversationChatMessages(
       req.user.userId,
       conversationId
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post("conversations/:conversationId/generateChatResponse")
+  async generateChatResponse(
+    @Request() req,
+    @Param("conversationId") conversationId: string,
+    @Body("query") query: string // Extract user query from the request body
+  ): Promise<any> {
+    // Pass the userId, conversationId, and query to the service
+    return this.ChatService.generateChatResponse(
+      req.user.userId,
+      conversationId,
+      query
     );
   }
 }
