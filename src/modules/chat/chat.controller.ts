@@ -41,13 +41,15 @@ export class ChatController {
   async generateChatResponse(
     @Request() req,
     @Param("conversationId") conversationId: string,
-    @Body("query") query: string // Extract user query from the request body
+    @Body("query") query: string, // Extracts 'query' from request body
+    @Body("timestamp") timestamp: string // Extracts 'timestamp' from request body
   ): Promise<any> {
-    // Pass the userId, conversationId, and query to the service
+    // Pass the userId, conversationId, query, and timestamp to the service
     return this.ChatService.generateChatResponse(
       req.user.userId,
       conversationId,
-      query
+      query,
+      timestamp
     );
   }
 }

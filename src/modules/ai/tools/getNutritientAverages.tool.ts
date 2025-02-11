@@ -11,7 +11,13 @@ export class GetNutrientAveragesTool {
   async get2WeekAvgNutrients(userId: string): Promise<string> {
     try {
       console.log("USERID: ", userId);
-      const sql = `SELECT * FROM calculate_macro_averages(?)`;
+      const sql = `SELECT 
+      ROUND(COALESCE(average_calories, 0), 2) AS average_calories, 
+      ROUND(COALESCE(average_protein, 0), 2) AS average_protein, 
+      ROUND(COALESCE(average_fat, 0), 2) AS average_fat, 
+      ROUND(COALESCE(average_carbs, 0), 2) AS average_carbs  
+    FROM calculate_macro_averages(?);`;
+
       const results = await this.em.getConnection().execute(sql, [userId]);
 
       if (!results || results.length === 0) {

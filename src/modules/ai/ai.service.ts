@@ -8,6 +8,8 @@ import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { RunnableLambda, RunnableParallel } from "@langchain/core/runnables";
 import { AIMessage } from "@langchain/core/messages";
 import { GetGoalsTool } from "./tools/getGoals.tool";
+import { GetStrengthProgress } from "./tools/getStrengthProgress.tool";
+import { GetLatestWorkout } from "./tools/getLatestWorkout.tool";
 // import Configuration from "openai";
 
 @Injectable()
@@ -17,7 +19,9 @@ export class AiService {
 
   constructor(
     private readonly nutrientTool: GetNutrientAveragesTool,
-    private readonly goalsTool: GetGoalsTool
+    private readonly goalsTool: GetGoalsTool,
+    private readonly strengthProgressTool: GetStrengthProgress,
+    private readonly latestWorkoutTool: GetLatestWorkout
   ) {
     // will be deprecated
     // this.openai = new OpenAI({
@@ -33,13 +37,21 @@ export class AiService {
   async generateChatResponse(input: {
     userId: string;
     userQuery: string;
+    timestamp: string;
   }): Promise<any> {
     const { userId, userQuery } = input;
-    const tools = [this.nutrientTool.tool, this.goalsTool.tool];
+    const tools = [
+      this.nutrientTool.tool,
+      this.goalsTool.tool,
+      this.strengthProgressTool.tool,
+      this.latestWorkoutTool.tool,
+    ];
 
     const toolsByName = {
       getAvgNutrients: this.nutrientTool.tool,
       getGoals: this.goalsTool.tool,
+      getStrengthProgress: this.strengthProgressTool.tool,
+      getLatestWorkout: this.latestWorkoutTool.tool,
     };
 
     const handleRunTimeRequestRunnable = RunnableLambda.from(
