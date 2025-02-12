@@ -9,14 +9,14 @@ export class GetLatestWorkout {
   constructor(private readonly em: EntityManager) {}
 
   // Function to fetch 2-week average nutrient data
-  async getLatestWorkout(userId: string, workoutType: string): Promise<string> {
+  async getLatestWorkout(userId: string, userFullName:string, workoutType: string): Promise<string> {
     try {
       console.log("USERID: ", userId);
       const sql = `SELECT
             *
           FROM
             latest_workout
-          WHERE 
+          WHERE
             user_id = ?
             AND workout_type = ?`;
 
@@ -28,17 +28,17 @@ export class GetLatestWorkout {
         return `User ID ${userId} has no workout data recorded.\n`;
       }
 
-      let workoutContext = `Athlete's latest workout details:\n`;
+      let workoutContext = `${userFullName}'s latest workout details:\n`;
 
       if (results[0]["workout_notes"]) {
-        workoutContext += `Notes - ${results[0]["workout_notes"]}`;
+        workoutContext += `Notes - ${results[0]["workout_notes"]}\n`;
       }
 
       for (const data of results)
         if (data["workout_type"] == "strength_training") {
           const { exercise_name, set_num, reps, weight, workout_date } = data;
 
-          workoutContext += `On ${workout_date}, the Athlete did ${exercise_name} for ${reps} reps at ${weight} lbs on set ${set_num}\n`;
+          workoutContext += `On ${workout_date}, ${userFullName} did ${exercise_name} for ${set_num} x ${reps} at ${weight} lbs\n`;
         } else if (data["workout_type"] == "cardio") {
           const {
             exercise_name,
@@ -48,7 +48,7 @@ export class GetLatestWorkout {
             workout_date,
           } = data;
 
-          workoutContext += `On ${workout_date}, the Athlete did ${exercise_name} for ${duration_minutes} minutes at an intensity of ${intensity} and burned ${calories_burned} calories\n`;
+          workoutContext += `On ${workout_date}, ${userFullName} did ${exercise_name} for ${duration_minutes} minutes at an intensity of ${intensity} and burned ${calories_burned} calories\n`;
         }
 
       return workoutContext;
@@ -75,12 +75,13 @@ export class GetLatestWorkout {
         workoutType: z.infer<typeof toolSchema>["workoutType"];
       }): Promise<string> => {
         const userId = getContextVariable("userId"); // Retrieve userId from context
+        const userFullName = getContextVariable("userFullName"); // Retrieve userId from context
         if (!userId) {
           throw new Error(
             `No "userId" found in current context. Remember to call "setContextVariable('userId', value)";`
           );
         }
-        return this.getLatestWorkout(userId, workoutType);
+        return this.getLatestWorkout(userId, userFullName, workoutType);
       },
       {
         name: "getLatestWorkout",

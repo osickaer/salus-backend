@@ -49,16 +49,18 @@ export class ChatService {
 
   async generateChatResponse(
     userId: string,
+    userFullName: string,
     conversationId: string,
     userQuery: string,
-    timestamp: string
+    chatTimestamp: string
   ): Promise<any> {
     // Call the AI service to generate a response
-    const aiResponse = await this.aiService.generateChatResponse({
+    const aiResponse = await this.aiService.generateChatResponse(
       userId,
+      userFullName,
       userQuery,
-      timestamp,
-    });
+      chatTimestamp,
+    );
 
     // Save user query and AI response to the database
     // const newMessage = this.em.create(ChatMessages, {

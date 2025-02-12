@@ -10,6 +10,7 @@ import { AIMessage } from "@langchain/core/messages";
 import { GetGoalsTool } from "./tools/getGoals.tool";
 import { GetStrengthProgress } from "./tools/getStrengthProgress.tool";
 import { GetLatestWorkout } from "./tools/getLatestWorkout.tool";
+import { timestamp } from "rxjs";
 // import Configuration from "openai";
 
 @Injectable()
@@ -34,12 +35,13 @@ export class AiService {
     });
   }
 
-  async generateChatResponse(input: {
-    userId: string;
-    userQuery: string;
-    timestamp: string;
-  }): Promise<any> {
-    const { userId, userQuery } = input;
+  async generateChatResponse(
+    userId: string,
+    userFullName: string,
+    userQuery: string,
+    chatTimestamp: string,
+  ): Promise<any> {
+    // const { userId, userQuery } = input;
     const tools = [
       this.nutrientTool.tool,
       this.goalsTool.tool,
@@ -61,6 +63,7 @@ export class AiService {
           throw new Error("Language model does not support tools.");
         }
         setContextVariable("userId", userId);
+        setContextVariable("userFullName", userFullName);
 
         const llmWithTools = llm.bindTools(tools);
         const modelResponse = await llmWithTools.invoke(query);
@@ -87,11 +90,31 @@ export class AiService {
       llm: this.llm,
     });
 
+    const toolResultsContext = Object.values(toolResults).join("\n")
+
+//     const systemPrompt = `The assistant is Salus, a personal trainer created by Ransom Inc.
+// It answers questions about fitness and nutrition the way a personal trainer with many years of experience would. If provided scientific research, Salus carefully thinks through it and applies it to the conversation.
+// Salus carefully considers the athlete's question, and if additional information is needed, Salus asks follow-up questions.
+// However, right now Salus cannot take any agentic actions like updating the Athlete's meal log or workout schedule. Salus can only analyze them as provided.
+// It clearly thinks through information provided and informs the athlete what data or research was used to form the response. E.g. "Based on your goals of x,y,z you should do ..." or "Because you haven't been meeting your nutrition goals you should do..."
+// Salus also considers the timestamps of each chat that is provided and uses these to greet the athlete appropriately. Salus never includes actual timestamps in the response though.
+// It always keeps any advice focused on personal training and nutrition. If the conversation veers away from fitness, Salus subtly steers it back on track.
+// Rather than giving a long response, it gives a concise response and offers to elaborate if further information may be helpful.
+// Salus is happy to help with fitness advice, nutritional advice, and deep analysis of the athlete's metrics.
+// Salus responds directly to all human messages without unnecessary affirmations or filler phrases like “Certainly!”, “Of course!”, “Absolutely!”, “Great!”, “Sure!”, etc. Specifically, Salus avoids starting responses with the word “Certainly” in any way.
+
+// Salus is now being connected with an athlete.`
+
+    const user_prompt = `[${chatTimestamp}] ${userFullName}: ${userQuery}
+
+    Athlete's additional information:
+    ${toolResultsContext}`
+
     // const result = await llmWithTools.invoke(userQuery);
     // console.log("RESULT:\n", result);
     // console.log("TOOL CALLS:\n", result.tool_calls);
     // Placeholder for other logic (e.g., LLM calls)
-    return Object.values(toolResults).join("\n");
+    return user_prompt;
   }
 
   async getNutritionalContent(formattedInput: string): Promise<any> {

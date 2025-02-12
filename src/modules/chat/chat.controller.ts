@@ -1,4 +1,5 @@
 import { ChatService } from "./chat.service";
+import { UserService } from "../user/user.service";
 import {
   Controller,
   Get,
@@ -14,7 +15,7 @@ import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 
 @Controller("chat")
 export class ChatController {
-  constructor(private readonly ChatService: ChatService) {}
+  constructor(private readonly ChatService: ChatService, private readonly UserService: UserService) {}
 
   // Fetch all conversations for the authenticated user
   @UseGuards(JwtAuthGuard)
@@ -42,14 +43,16 @@ export class ChatController {
     @Request() req,
     @Param("conversationId") conversationId: string,
     @Body("query") query: string, // Extracts 'query' from request body
-    @Body("timestamp") timestamp: string // Extracts 'timestamp' from request body
+    @Body("chatTimestamp") chatTimestamp: string // Extracts 'timestamp' from request body
   ): Promise<any> {
+    const userFullName = (await this.UserService.getUserById(req.user.userId)).fullName
     // Pass the userId, conversationId, query, and timestamp to the service
     return this.ChatService.generateChatResponse(
       req.user.userId,
+      userFullName,
       conversationId,
       query,
-      timestamp
+      chatTimestamp
     );
   }
 }

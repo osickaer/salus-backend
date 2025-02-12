@@ -11,11 +11,11 @@ export class GetStrengthProgress {
   // Function to fetch 2-week average nutrient data
   async getStrengthProgress(
     userId: string,
+    userFullName: string,
     primaryMuscle: string
   ): Promise<string> {
     try {
-      console.log("USERID: ", userId);
-      const sql = `SELECT 
+      const sql = `SELECT
             DATE(workout_date) AS workout_date,
             exercise_name,
             num_sets,
@@ -35,13 +35,13 @@ export class GetStrengthProgress {
         return `User ID ${userId} has no macronutrient data recorded.\n`;
       }
 
-      let exerciseContext = `Athlete's strength progression for ${primaryMuscle} ordered by date descending:\n`;
+      let exerciseContext = `${userFullName}'s strength progression for ${primaryMuscle} ordered by date descending:\n`;
 
       for (const data of results) {
         const { workout_date, exercise_name, num_sets, avg_reps, avg_weight } =
           data;
 
-        exerciseContext += `On ${workout_date}, the athlete did ${num_sets} sets of ${exercise_name} for an average of ${avg_reps} reps at an average of ${avg_weight} lbs.\n`;
+        exerciseContext += `On ${workout_date}, the ${userFullName} did ${num_sets} sets of ${exercise_name} for an average of ${avg_reps} reps with an average of ${avg_weight} lbs.\n`;
       }
 
       return exerciseContext;
@@ -66,12 +66,13 @@ export class GetStrengthProgress {
     return tool(
       async ({ primaryMuscle }: { primaryMuscle: string }): Promise<string> => {
         const userId = getContextVariable("userId"); // Retrieve userId from context
+        const userFullName = getContextVariable("userFullName"); // Retrieve userId from context
         if (!userId) {
           throw new Error(
             `No "userId" found in current context. Remember to call "setContextVariable('userId', value)";`
           );
         }
-        return this.getStrengthProgress(userId, primaryMuscle);
+        return this.getStrengthProgress(userId, userFullName, primaryMuscle);
       },
       {
         name: "getStrengthProgress",
