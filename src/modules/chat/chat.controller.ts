@@ -8,14 +8,19 @@ import {
   Body,
   UseGuards,
   Request,
+  Res,
 } from "@nestjs/common";
 import { ChatMessages } from "src/entities/ChatMessages";
 import { Conversations } from "src/entities/Conversations";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { Response } from "express";
 
 @Controller("chat")
 export class ChatController {
-  constructor(private readonly ChatService: ChatService, private readonly UserService: UserService) {}
+  constructor(
+    private readonly ChatService: ChatService,
+    private readonly UserService: UserService
+  ) {}
 
   // Fetch all conversations for the authenticated user
   @UseGuards(JwtAuthGuard)
@@ -41,18 +46,34 @@ export class ChatController {
   @Post("conversations/:conversationId/generateChatResponse")
   async generateChatResponse(
     @Request() req,
+    @Res() response: Response,
     @Param("conversationId") conversationId: string,
-    @Body("query") query: string, // Extracts 'query' from request body
-    @Body("chatTimestamp") chatTimestamp: string // Extracts 'timestamp' from request body
-  ): Promise<any> {
-    const userFullName = (await this.UserService.getUserById(req.user.userId)).fullName
-    // Pass the userId, conversationId, query, and timestamp to the service
-    return this.ChatService.generateChatResponse(
-      req.user.userId,
-      userFullName,
-      conversationId,
-      query,
-      chatTimestamp
-    );
+    @Body("query") query: string,
+    @Body("chatTimestamp") chatTimestamp: string
+  ): Promise<void> {
+    response.setHeader("Content-Type", "text/event-stream");
+    response.setHeader("Cache-Control", "no-cache");
+    response.setHeader("Connection", "keep-alive");
+
+    const userFullName = (await this.UserService.getUserById(req.user.userId))
+      .fullName;
+
+    try {
+      const stream = await this.ChatService.generateChatResponse(
+        req.user.userId,
+        userFullName,
+        conversationId,
+        query,
+        chatTimestamp
+      );
+
+      for await (const chunk of stream) {
+        response.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      }
+    } catch (error) {
+      response.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    } finally {
+      response.end();
+    }
   }
 }

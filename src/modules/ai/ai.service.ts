@@ -6,11 +6,20 @@ import { GetNutrientAveragesTool } from "./tools/getNutritientAverages.tool";
 import { setContextVariable } from "@langchain/core/context";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { RunnableLambda, RunnableParallel } from "@langchain/core/runnables";
-import { AIMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  SystemMessage,
+  HumanMessage,
+} from "@langchain/core/messages";
+import {
+  ChatPromptTemplate,
+  MessagesPlaceholder,
+} from "@langchain/core/prompts";
 import { GetGoalsTool } from "./tools/getGoals.tool";
 import { GetStrengthProgress } from "./tools/getStrengthProgress.tool";
 import { GetLatestWorkout } from "./tools/getLatestWorkout.tool";
 import { timestamp } from "rxjs";
+import { promises as fs } from "fs";
 // import Configuration from "openai";
 
 @Injectable()
@@ -32,6 +41,7 @@ export class AiService {
     this.llm = new ChatOpenAI({
       model: "gpt-4o-mini",
       temperature: 0,
+      streaming: true,
     });
   }
 
@@ -39,8 +49,8 @@ export class AiService {
     userId: string,
     userFullName: string,
     userQuery: string,
-    chatTimestamp: string,
-  ): Promise<any> {
+    chatTimestamp: string
+  ): Promise<AsyncGenerator<string>> {
     // const { userId, userQuery } = input;
     const tools = [
       this.nutrientTool.tool,
@@ -66,8 +76,35 @@ export class AiService {
         setContextVariable("userFullName", userFullName);
 
         const llmWithTools = llm.bindTools(tools);
-        const modelResponse = await llmWithTools.invoke(query);
+        const messages = [
+          new SystemMessage(
+            await fs.readFile("prompts/toolCallerPrompt.md", "utf8")
+          ),
+          new HumanMessage(query),
+        ];
+        const modelResponse = await llmWithTools.invoke(messages);
         const toolCalls = modelResponse.tool_calls || [];
+
+        // Add detailed logging for tool calls
+        console.log("\n=== Tool Calls ===");
+        if (toolCalls.length === 0) {
+          console.log("No tool calls made");
+        } else {
+          toolCalls.forEach((toolCall, index) => {
+            console.log(`\nTool Call ${index + 1}:`);
+            console.log(
+              JSON.stringify(
+                {
+                  name: toolCall.name,
+                  args: toolCall.args,
+                },
+                null,
+                2
+              )
+            );
+          });
+        }
+        console.log("================\n");
 
         const toolExecutionChain = RunnableParallel.from(
           toolCalls.map((toolCall) => {
@@ -79,7 +116,14 @@ export class AiService {
           })
         );
 
-        return toolExecutionChain.invoke({});
+        const results = await toolExecutionChain.invoke({});
+
+        // Log tool execution results
+        console.log("\n=== Tool Results ===");
+        console.log(JSON.stringify(results, null, 2));
+        console.log("==================\n");
+
+        return results;
       }
     );
     // Example tool invocation
@@ -90,31 +134,57 @@ export class AiService {
       llm: this.llm,
     });
 
-    const toolResultsContext = Object.values(toolResults).join("\n")
+    const toolResultsContext = Object.values(toolResults).join("\n");
 
-//     const systemPrompt = `The assistant is Salus, a personal trainer created by Ransom Inc.
-// It answers questions about fitness and nutrition the way a personal trainer with many years of experience would. If provided scientific research, Salus carefully thinks through it and applies it to the conversation.
-// Salus carefully considers the athlete's question, and if additional information is needed, Salus asks follow-up questions.
-// However, right now Salus cannot take any agentic actions like updating the Athlete's meal log or workout schedule. Salus can only analyze them as provided.
-// It clearly thinks through information provided and informs the athlete what data or research was used to form the response. E.g. "Based on your goals of x,y,z you should do ..." or "Because you haven't been meeting your nutrition goals you should do..."
-// Salus also considers the timestamps of each chat that is provided and uses these to greet the athlete appropriately. Salus never includes actual timestamps in the response though.
-// It always keeps any advice focused on personal training and nutrition. If the conversation veers away from fitness, Salus subtly steers it back on track.
-// Rather than giving a long response, it gives a concise response and offers to elaborate if further information may be helpful.
-// Salus is happy to help with fitness advice, nutritional advice, and deep analysis of the athlete's metrics.
-// Salus responds directly to all human messages without unnecessary affirmations or filler phrases like “Certainly!”, “Of course!”, “Absolutely!”, “Great!”, “Sure!”, etc. Specifically, Salus avoids starting responses with the word “Certainly” in any way.
+    // const user_prompt = `[${chatTimestamp}] ${userFullName}: ${userQuery}
 
-// Salus is now being connected with an athlete.`
+    // Athlete's additional information:
+    // ${toolResultsContext}`;
 
-    const user_prompt = `[${chatTimestamp}] ${userFullName}: ${userQuery}
+    const messages = [
+      new SystemMessage(await fs.readFile("prompts/salusPrompt.md", "utf8")),
+      new HumanMessage(userQuery),
+    ];
 
-    Athlete's additional information:
-    ${toolResultsContext}`
+    const system_prompt = await fs.readFile("prompts/salusPrompt.md", "utf8");
+    const system_prompt_template = system_prompt.replace(
+      "{context}",
+      toolResultsContext
+    );
 
-    // const result = await llmWithTools.invoke(userQuery);
-    // console.log("RESULT:\n", result);
-    // console.log("TOOL CALLS:\n", result.tool_calls);
-    // Placeholder for other logic (e.g., LLM calls)
-    return user_prompt;
+    const promptTemplate = ChatPromptTemplate.fromMessages([
+      new SystemMessage(system_prompt_template),
+      new MessagesPlaceholder("messages"),
+    ]);
+
+    const chain = promptTemplate.pipe(this.llm);
+
+    const stream = await chain.stream({
+      messages: messages,
+      context: toolResultsContext,
+    });
+
+    // Convert stream to JSON chunks with metadata and pretty formatting
+    const jsonStream = (async function* () {
+      let fullResponse = ""; // Track complete response for debugging
+      for await (const chunk of stream) {
+        const jsonChunk = {
+          content: chunk.content,
+          chunkSource: "AI",
+          timestamp: new Date().toISOString(), // Optional: add timestamp for debugging
+        };
+
+        fullResponse += chunk.content; // Accumulate the response
+        yield JSON.stringify(jsonChunk) + "\n";
+      }
+
+      // Log complete response at the end
+      console.log("\n=== Complete Response ===");
+      console.log(fullResponse);
+      console.log("======================\n");
+    })();
+
+    return jsonStream;
   }
 
   async getNutritionalContent(formattedInput: string): Promise<any> {

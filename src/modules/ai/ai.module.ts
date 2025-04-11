@@ -5,6 +5,8 @@ import { AiService } from "./ai.service";
 import { GetGoalsTool } from "./tools/getGoals.tool";
 import { GetStrengthProgress } from "./tools/getStrengthProgress.tool";
 import { GetLatestWorkout } from "./tools/getLatestWorkout.tool";
+import { LogMealTool } from "./tools/logMeal.tool";
+
 @Module({
   controllers: [AiController],
   providers: [
@@ -13,6 +15,7 @@ import { GetLatestWorkout } from "./tools/getLatestWorkout.tool";
     GetGoalsTool,
     GetStrengthProgress,
     GetLatestWorkout,
+    LogMealTool,
   ],
   exports: [
     AiService,
@@ -20,6 +23,7 @@ import { GetLatestWorkout } from "./tools/getLatestWorkout.tool";
     GetGoalsTool,
     GetStrengthProgress,
     GetLatestWorkout,
+    LogMealTool,
   ],
 })
 export class AiModule {}

@@ -9,7 +9,11 @@ export class GetLatestWorkout {
   constructor(private readonly em: EntityManager) {}
 
   // Function to fetch 2-week average nutrient data
-  async getLatestWorkout(userId: string, userFullName:string, workoutType: string): Promise<string> {
+  async getLatestWorkout(
+    userId: string,
+    userFullName: string,
+    workoutType: string
+  ): Promise<string> {
     try {
       console.log("USERID: ", userId);
       const sql = `SELECT
@@ -38,7 +42,7 @@ export class GetLatestWorkout {
         if (data["workout_type"] == "strength_training") {
           const { exercise_name, set_num, reps, weight, workout_date } = data;
 
-          workoutContext += `On ${workout_date}, ${userFullName} did ${exercise_name} for ${set_num} x ${reps} at ${weight} lbs\n`;
+          workoutContext += `${exercise_name} set ${set_num}: ${reps} x ${weight} lbs\n`;
         } else if (data["workout_type"] == "cardio") {
           const {
             exercise_name,

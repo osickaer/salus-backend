@@ -3,12 +3,35 @@ import { EntityManager } from "@mikro-orm/postgresql";
 import { Conversations } from "src/entities/Conversations";
 import { ChatMessages } from "src/entities/ChatMessages";
 import { AiService } from "../ai/ai.service";
+import { GetGoalsTool } from "../ai/tools/getGoals.tool";
+import { GetLatestWorkout } from "../ai/tools/getLatestWorkout.tool";
+import { GetStrengthProgress } from "../ai/tools/getStrengthProgress.tool";
+import { GetNutrientAveragesTool } from "../ai/tools/getNutritientAverages.tool";
+import { createChatGraph } from "../ai/graphs/chat.graph";
+import { setContextVariable } from "@langchain/core/context";
+import { BaseChatModel } from "@langchain/core/language_models/chat_models";
+import { RunnableLambda, RunnableParallel } from "@langchain/core/runnables";
+import {
+  AIMessage,
+  SystemMessage,
+  HumanMessage,
+} from "@langchain/core/messages";
+import {
+  ChatPromptTemplate,
+  MessagesPlaceholder,
+} from "@langchain/core/prompts";
+import { ChatOpenAI } from "@langchain/openai";
+import { promises as fs } from "fs";
 
 @Injectable()
 export class ChatService {
   constructor(
     private readonly em: EntityManager,
-    private readonly aiService: AiService
+    private readonly aiService: AiService,
+    private readonly nutrientTool: GetNutrientAveragesTool,
+    private readonly goalsTool: GetGoalsTool,
+    private readonly strengthProgressTool: GetStrengthProgress,
+    private readonly latestWorkoutTool: GetLatestWorkout
   ) {}
 
   async getUserConversations(userId: string): Promise<Conversations[]> {
@@ -53,15 +76,7 @@ export class ChatService {
     conversationId: string,
     userQuery: string,
     chatTimestamp: string
-  ): Promise<any> {
-    // Call the AI service to generate a response
-    const aiResponse = await this.aiService.generateChatResponse(
-      userId,
-      userFullName,
-      userQuery,
-      chatTimestamp,
-    );
-
+  ): Promise<AsyncGenerator<string>> {
     // Save user query and AI response to the database
     // const newMessage = this.em.create(ChatMessages, {
     //   conversation: conversationId,
@@ -70,7 +85,6 @@ export class ChatService {
     //   sender: "user",
     //   timestamp: new Date(),
     // });
-
     // const aiMessage = this.em.create(ChatMessages, {
     //   conversation: conversationId,
     //   user: userId,
@@ -78,9 +92,19 @@ export class ChatService {
     //   sender: "ai",
     //   timestamp: new Date(),
     // });
-
     // await this.em.persistAndFlush([newMessage, aiMessage]);
+    // const tools = [
+    //   this.nutrientTool.tool,
+    //   this.goalsTool.tool,
+    //   this.strengthProgressTool.tool,
+    //   this.latestWorkoutTool.tool,
+    // ];
 
-    return aiResponse;
+    return this.aiService.generateChatResponse(
+      userId,
+      userFullName,
+      userQuery,
+      chatTimestamp
+    );
   }
 }
