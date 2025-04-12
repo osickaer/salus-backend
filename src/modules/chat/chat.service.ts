@@ -3,35 +3,25 @@ import { EntityManager } from "@mikro-orm/postgresql";
 import { Conversations } from "src/entities/Conversations";
 import { ChatMessages } from "src/entities/ChatMessages";
 import { AiService } from "../ai/ai.service";
-import { GetGoalsTool } from "../ai/tools/getGoals.tool";
-import { GetLatestWorkout } from "../ai/tools/getLatestWorkout.tool";
-import { GetStrengthProgress } from "../ai/tools/getStrengthProgress.tool";
-import { GetNutrientAveragesTool } from "../ai/tools/getNutritientAverages.tool";
-// import { createChatGraph } from "../ai/graphs/chat.graph";
-import { setContextVariable } from "@langchain/core/context";
-import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { RunnableLambda, RunnableParallel } from "@langchain/core/runnables";
+import { ChatGraphService } from "../ai/graphs/chat.graph";
 import {
   AIMessage,
   SystemMessage,
   HumanMessage,
+  BaseMessage,
+  isAIMessage,
+  isHumanMessage,
+  isToolMessage,
+  ToolMessage,
+  isAIMessageChunk,
 } from "@langchain/core/messages";
-import {
-  ChatPromptTemplate,
-  MessagesPlaceholder,
-} from "@langchain/core/prompts";
-import { ChatOpenAI } from "@langchain/openai";
-import { promises as fs } from "fs";
 
 @Injectable()
 export class ChatService {
   constructor(
     private readonly em: EntityManager,
     private readonly aiService: AiService,
-    private readonly nutrientTool: GetNutrientAveragesTool,
-    private readonly goalsTool: GetGoalsTool,
-    private readonly strengthProgressTool: GetStrengthProgress,
-    private readonly latestWorkoutTool: GetLatestWorkout
+    private readonly chatGraphService: ChatGraphService
   ) {}
 
   async getUserConversations(userId: string): Promise<Conversations[]> {
@@ -77,34 +67,117 @@ export class ChatService {
     userQuery: string,
     chatTimestamp: string
   ): Promise<AsyncGenerator<string>> {
-    // Save user query and AI response to the database
+    // Save user query to the database
     // const newMessage = this.em.create(ChatMessages, {
     //   conversation: conversationId,
     //   user: userId,
     //   message: userQuery,
-    //   sender: "user",
-    //   timestamp: new Date(),
+    //   role: "user",
+    //   chatTimestamp: new Date(),
     // });
+    // await this.em.persistAndFlush(newMessage);
+
+    // function stringMessages(messages: BaseMessage[]) {
+    //   let fullmessage = "";
+    //   for (const message of messages) {
+    //     if (isHumanMessage(message)) {
+    //       fullmessage = fullmessage + `User: ${message.content}\n`;
+    //       console.log(`User: ${message.content}`);
+    //     } else if (isAIMessage(message)) {
+    //       const aiMessage = message as AIMessage;
+    //       if (aiMessage.content) {
+    //         fullmessage = fullmessage + `Assistant: ${aiMessage.content}`;
+    //         console.log(`Assistant: ${aiMessage.content}`);
+    //       }
+    //       if (aiMessage.tool_calls) {
+    //         for (const toolCall of aiMessage.tool_calls) {
+    //           fullmessage =
+    //             fullmessage +
+    //             `Tool call: ${toolCall.name}(${JSON.stringify(toolCall.args)})`;
+    //           console.log(
+    //             `Tool call: ${toolCall.name}(${JSON.stringify(toolCall.args)})`
+    //           );
+    //         }
+    //       }
+    //     } else if (isToolMessage(message)) {
+    //       const toolMessage = message as ToolMessage;
+    //       fullmessage =
+    //         fullmessage +
+    //         `${toolMessage.name} tool output: ${toolMessage.content}`;
+    //       console.log(
+    //         `${toolMessage.name} tool output: ${toolMessage.content}`
+    //       );
+    //     }
+    //   }
+
+    //   return fullmessage;
+    // }
+    // Use the chat graph to generate response
+    const stream = await this.chatGraphService.generateResponse(
+      userId,
+      userFullName,
+      userQuery
+    );
+
+    // const stringResponse = stringMessages(messages);
+
+    // For development - simple response handling
+    // let fullResponse = "";
+    // for await (const chunk of response) {
+    //   fullResponse += chunk.content;
+    // }
+
+    // Save AI response to database
     // const aiMessage = this.em.create(ChatMessages, {
     //   conversation: conversationId,
     //   user: userId,
-    //   message: aiResponse,
-    //   sender: "ai",
-    //   timestamp: new Date(),
+    //   message: fullResponse,
+    //   role: "assistant",
+    //   chatTimestamp: new Date(),
     // });
-    // await this.em.persistAndFlush([newMessage, aiMessage]);
-    // const tools = [
-    //   this.nutrientTool.tool,
-    //   this.goalsTool.tool,
-    //   this.strengthProgressTool.tool,
-    //   this.latestWorkoutTool.tool,
-    // ];
+    // await this.em.persistAndFlush(aiMessage);
 
-    return this.aiService.generateChatResponse(
-      userId,
-      userFullName,
-      userQuery,
-      chatTimestamp
-    );
+    // return stringResponse;
+
+    // Streaming code for future use
+    const jsonStream = (async function* () {
+      let fullResponse = ""; // Track complete response for debugging
+      for await (const [message, _metadata] of stream) {
+        let jsonChunk = {};
+        if (isAIMessageChunk(message) && message.tool_call_chunks?.length) {
+          jsonChunk = {
+            content: message.tool_call_chunks[0].args,
+            chunkSource: "AI_TOOL_CALL",
+            timestamp: new Date().toISOString(), // Optional: add timestamp for debugging
+          };
+        } else {
+          jsonChunk = {
+            content: message.content,
+            chunkSource: "AI",
+            timestamp: new Date().toISOString(), // Optional: add timestamp for debugging
+          };
+          fullResponse += message.content; // Accumulate the response
+        }
+
+        yield JSON.stringify(jsonChunk) + "\n";
+      }
+
+      // Log complete response at the end
+      console.log("\n=== Complete Response ===");
+      console.log(fullResponse);
+      console.log("======================\n");
+
+      // Save AI response to database
+      // const aiMessage = this.em.create(ChatMessages, {
+      //   conversation: conversationId,
+      //   user: userId,
+      //   message: fullResponse,
+      //   role: "assistant",
+      //   chatTimestamp: new Date(),
+      // });
+      // await this.em.persistAndFlush(aiMessage);
+    })();
+
+    return jsonStream;
   }
 }

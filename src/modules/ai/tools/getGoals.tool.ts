@@ -3,6 +3,7 @@ import { getContextVariable } from "@langchain/core/context";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { UserGoals } from "src/entities/UserGoals";
+import { LangGraphRunnableConfig } from "@langchain/langgraph";
 
 @Injectable()
 export class GetGoalsTool {
@@ -52,18 +53,17 @@ export class GetGoalsTool {
   // Define the LangChain tool
   get tool() {
     return tool(
-      async (): Promise<string> => {
-        const userId = getContextVariable("userId"); // Retrieve userId from context
+      async (_, config: LangGraphRunnableConfig): Promise<string> => {
+        // const userId = getContextVariable("userId"); // Retrieve userId from context
+        const userId = config.configurable?.userId;
         if (!userId) {
-          throw new Error(
-            `No "userId" found in current context. Remember to call "setContextVariable('userId', value)";`
-          );
+          throw new Error(`No "userId" found in current config.";`);
         }
         return this.getGoals(userId);
       },
       {
-        name: "getGoals",
-        description: "Fetches the user's goals",
+        name: "get_fitness_goals",
+        description: "Fetches the athlete's fitness goals from the databse.",
         schema: null, // No schema needed
       }
     );

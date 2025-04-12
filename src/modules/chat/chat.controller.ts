@@ -51,9 +51,10 @@ export class ChatController {
     @Body("query") query: string,
     @Body("chatTimestamp") chatTimestamp: string
   ): Promise<void> {
-    response.setHeader("Content-Type", "text/event-stream");
-    response.setHeader("Cache-Control", "no-cache");
-    response.setHeader("Connection", "keep-alive");
+    //change back to void
+    // response.setHeader("Content-Type", "text/event-stream");
+    // response.setHeader("Cache-Control", "no-cache");
+    // response.setHeader("Connection", "keep-alive");
 
     const userFullName = (await this.UserService.getUserById(req.user.userId))
       .fullName;
@@ -66,7 +67,7 @@ export class ChatController {
         query,
         chatTimestamp
       );
-
+      // return stream;
       for await (const chunk of stream) {
         response.write(`data: ${JSON.stringify(chunk)}\n\n`);
       }

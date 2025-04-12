@@ -6,6 +6,7 @@ import { GetGoalsTool } from "./tools/getGoals.tool";
 import { GetStrengthProgress } from "./tools/getStrengthProgress.tool";
 import { GetLatestWorkout } from "./tools/getLatestWorkout.tool";
 import { LogMealTool } from "./tools/logMeal.tool";
+import { ChatGraphService } from "./graphs/chat.graph";
 
 @Module({
   controllers: [AiController],
@@ -16,6 +17,7 @@ import { LogMealTool } from "./tools/logMeal.tool";
     GetStrengthProgress,
     GetLatestWorkout,
     LogMealTool,
+    ChatGraphService,
   ],
   exports: [
     AiService,
@@ -24,6 +26,7 @@ import { LogMealTool } from "./tools/logMeal.tool";
     GetStrengthProgress,
     GetLatestWorkout,
     LogMealTool,
+    ChatGraphService,
   ],
 })
 export class AiModule {}

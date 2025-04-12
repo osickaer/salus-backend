@@ -3,6 +3,7 @@ import {
   MessagesAnnotation,
   END,
   START,
+  CompiledStateGraph,
 } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
@@ -20,28 +21,33 @@ import { promises as fs } from "fs";
 
 @Injectable()
 export class ChatGraphService {
-  private modelWithTools: BaseChatModel;
   private workflow: any; // Type this better based on StateGraph return type
+  private llm: ChatOpenAI;
 
   constructor(
     private readonly em: EntityManager,
     private readonly aiService: AiService,
-    private readonly llm: ChatOpenAI,
+    // private readonly llm: ChatOpenAI,
     private readonly nutrientTool: GetNutrientAveragesTool,
     private readonly goalsTool: GetGoalsTool,
     private readonly strengthProgressTool: GetStrengthProgress,
     private readonly latestWorkoutTool: GetLatestWorkout
   ) {
+    this.llm = new ChatOpenAI({
+      model: "gpt-4o-mini",
+      temperature: 0,
+      streaming: true,
+    });
     this.initializeGraph();
   }
 
   private async initializeGraph() {
     // Initialize model with tools
     const tools = [
-      this.nutrientTool.tool,
+      // this.nutrientTool.tool,
       this.goalsTool.tool,
-      this.strengthProgressTool.tool,
-      this.latestWorkoutTool.tool,
+      // this.strengthProgressTool.tool,
+      // this.latestWorkoutTool.tool,
     ];
 
     const modelWithTools = this.llm.bindTools(tools);
@@ -81,13 +87,22 @@ export class ChatGraphService {
     userFullName: string,
     userQuery: string
   ) {
-    const systemPrompt = await fs.readFile("prompts/salusPrompt.md", "utf8");
+    const systemPrompt = await fs.readFile("prompts/salusPrompt2.md", "utf8");
 
     const messages = [
       new SystemMessage(systemPrompt),
       new HumanMessage(userQuery),
     ];
 
-    return await this.workflow.invoke({ messages });
+    let config = {
+      streamMode: "messages",
+      configurable: {
+        // thread_id: "1",
+        userId: userId,
+        userFullName: userFullName,
+      },
+    };
+
+    return await this.workflow.stream({ messages }, config);
   }
 }
