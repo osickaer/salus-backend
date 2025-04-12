@@ -8,48 +8,86 @@ import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { Tool } from "@langchain/core/tools";
 import { ChatOpenAI } from "@langchain/openai";
+import { GetGoalsTool } from "../tools/getGoals.tool";
+import { GetLatestWorkout } from "../tools/getLatestWorkout.tool";
+import { GetStrengthProgress } from "../tools/getStrengthProgress.tool";
+import { GetNutrientAveragesTool } from "../tools/getNutritientAverages.tool";
+import { Injectable } from "@nestjs/common";
+import { AiService } from "../ai.service";
+import { EntityManager } from "@mikro-orm/postgresql";
+import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+import { promises as fs } from "fs";
 
-const shouldContinue = (state: typeof MessagesAnnotation.State) => {
-  const { messages } = state;
-  const lastMessage = messages[messages.length - 1];
-  if (
-    "tool_calls" in lastMessage &&
-    Array.isArray(lastMessage.tool_calls) &&
-    lastMessage.tool_calls?.length
+@Injectable()
+export class ChatGraphService {
+  private modelWithTools: BaseChatModel;
+  private workflow: any; // Type this better based on StateGraph return type
+
+  constructor(
+    private readonly em: EntityManager,
+    private readonly aiService: AiService,
+    private readonly llm: ChatOpenAI,
+    private readonly nutrientTool: GetNutrientAveragesTool,
+    private readonly goalsTool: GetGoalsTool,
+    private readonly strengthProgressTool: GetStrengthProgress,
+    private readonly latestWorkoutTool: GetLatestWorkout
   ) {
-    return "tools";
+    this.initializeGraph();
   }
-  return END;
-};
 
-const callModel = async (state: typeof MessagesAnnotation.State) => {
-  const { messages } = state;
+  private async initializeGraph() {
+    // Initialize model with tools
+    const tools = [
+      this.nutrientTool.tool,
+      this.goalsTool.tool,
+      this.strengthProgressTool.tool,
+      this.latestWorkoutTool.tool,
+    ];
 
-  const tools = [
-    nutrientTool.tool,
-    goalsTool.tool,
-    strengthProgressTool.tool,
-    latestWorkoutTool.tool,
-  ];
+    const modelWithTools = this.llm.bindTools(tools);
+    const toolNodeForGraph = new ToolNode(tools);
 
-  const llmWithTools = new ChatOpenAI({
-    model: "gpt-4o-mini",
-    temperature: 0,
-    streaming: true,
-  }).bindTools(tools);
-  const response = await modelWithTools.invoke(messages);
-  return { messages: response };
-};
+    const shouldContinue = (state: typeof MessagesAnnotation.State) => {
+      const { messages } = state;
+      const lastMessage = messages[messages.length - 1];
+      if (
+        "tool_calls" in lastMessage &&
+        Array.isArray(lastMessage.tool_calls) &&
+        lastMessage.tool_calls?.length
+      ) {
+        return "tools";
+      }
+      return END;
+    };
 
-export function createChatGraph(modelWithTools: BaseChatModel, tools: Tool[]) {
-  const toolNodeForGraph = new ToolNode(tools);
+    const callModel = async (state: typeof MessagesAnnotation.State) => {
+      const { messages } = state;
+      const response = await modelWithTools.invoke(messages);
+      return { messages: response };
+    };
 
-  const workflow = new StateGraph(MessagesAnnotation)
-    .addNode("agent", callModel)
-    .addNode("tools", toolNodeForGraph)
-    .addEdge(START, "agent")
-    .addConditionalEdges("agent", shouldContinue, ["tools", END])
-    .addEdge("tools", "agent");
+    const workflow = new StateGraph(MessagesAnnotation)
+      .addNode("agent", callModel)
+      .addNode("tools", toolNodeForGraph)
+      .addEdge(START, "agent")
+      .addConditionalEdges("agent", shouldContinue, ["tools", END])
+      .addEdge("tools", "agent");
 
-  return workflow.compile();
+    this.workflow = workflow.compile();
+  }
+
+  async generateResponse(
+    userId: string,
+    userFullName: string,
+    userQuery: string
+  ) {
+    const systemPrompt = await fs.readFile("prompts/salusPrompt.md", "utf8");
+
+    const messages = [
+      new SystemMessage(systemPrompt),
+      new HumanMessage(userQuery),
+    ];
+
+    return await this.workflow.invoke({ messages });
+  }
 }

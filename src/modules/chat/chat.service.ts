@@ -7,7 +7,7 @@ import { GetGoalsTool } from "../ai/tools/getGoals.tool";
 import { GetLatestWorkout } from "../ai/tools/getLatestWorkout.tool";
 import { GetStrengthProgress } from "../ai/tools/getStrengthProgress.tool";
 import { GetNutrientAveragesTool } from "../ai/tools/getNutritientAverages.tool";
-import { createChatGraph } from "../ai/graphs/chat.graph";
+// import { createChatGraph } from "../ai/graphs/chat.graph";
 import { setContextVariable } from "@langchain/core/context";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { RunnableLambda, RunnableParallel } from "@langchain/core/runnables";
