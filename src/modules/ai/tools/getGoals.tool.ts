@@ -37,13 +37,15 @@ export class GetGoalsTool {
         results[0];
 
       return `
-        Athlete's current goals: ${weightGoal}, ${bodyGoal}
-        Athlete's nutrition targets:
-        - ${calsGoal} calories
-        - ${proteinGoal} protein
-        - ${fatGoal} fat
-        - ${carbGoal} carbohydrates
-      `;
+      
+Athlete's current goals: ${weightGoal}, ${bodyGoal}
+Athlete's nutrition targets:
+- ${calsGoal} calories
+- ${proteinGoal} protein
+- ${fatGoal} fat
+- ${carbGoal} carbohydrates
+      
+`;
     } catch (error) {
       console.error(`Error retrieving user goals: ${error.message}`);
       throw new Error("Failed to retrieve user goals.");
@@ -62,8 +64,8 @@ export class GetGoalsTool {
         return this.getGoals(userId);
       },
       {
-        name: "get_fitness_goals",
-        description: "Fetches the athlete's fitness goals from the databse.",
+        name: "get_athlete_goals",
+        description: "Fetches the athlete's fitness goals from the database.",
         schema: null, // No schema needed
       }
     );

@@ -3,6 +3,7 @@ import { getContextVariable } from "@langchain/core/context";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { z } from "zod";
+import { LangGraphRunnableConfig } from "@langchain/langgraph";
 
 @Injectable()
 export class GetStrengthProgress {
@@ -12,7 +13,7 @@ export class GetStrengthProgress {
   async getStrengthProgress(
     userId: string,
     userFullName: string,
-    primaryMuscle: string
+    primaryMuscles: string[]
   ): Promise<string> {
     try {
       const sql = `SELECT
@@ -24,18 +25,18 @@ export class GetStrengthProgress {
             primary_muscles
           FROM strength_exercise_progress
           WHERE user_id = ?
-          AND primary_muscles @> ARRAY[?]
+          AND primary_muscles && ARRAY[?]
           LIMIT 5;`;
 
       const results = await this.em
         .getConnection()
-        .execute(sql, [userId, primaryMuscle]);
+        .execute(sql, [userId, primaryMuscles]);
 
       if (!results || results.length === 0) {
         return `User ID ${userId} has no macronutrient data recorded.\n`;
       }
 
-      let exerciseContext = `${userFullName}'s strength progression for ${primaryMuscle} ordered by date descending:\n`;
+      let exerciseContext = `\n\n${userFullName}'s strength progression for ${primaryMuscles} ordered by date descending:\n\n`;
 
       for (const data of results) {
         const { workout_date, exercise_name, num_sets, avg_reps, avg_weight } =
@@ -56,26 +57,49 @@ export class GetStrengthProgress {
   // Define the LangChain tool
   get tool() {
     const toolSchema = z.object({
-      primaryMuscle: z
-        .string()
+      primaryMuscles: z
+        .array(
+          z.enum([
+            "abductors",
+            "biceps",
+            "lower back",
+            "glutes",
+            "calves",
+            "quadriceps",
+            "shoulders",
+            "triceps",
+            "neck",
+            "adductors",
+            "chest",
+            "abdominals",
+            "hamstrings",
+            "forearms",
+            "traps",
+            "middle back",
+            "lats",
+          ])
+        )
         .describe(
-          "The primary muscle to search for (e.g. abdominals, lats, middle back, hamstrings, quadriceps, chest, glutes, etc.)."
+          "The primary muscles to search for (e.g. abdominals, lats, middle back, hamstrings, quadriceps, chest, glutes, etc.)."
         ),
     });
 
     return tool(
-      async ({ primaryMuscle }: { primaryMuscle: string }): Promise<string> => {
-        const userId = getContextVariable("userId"); // Retrieve userId from context
-        const userFullName = getContextVariable("userFullName"); // Retrieve userId from context
-        if (!userId) {
+      async (input, config: LangGraphRunnableConfig): Promise<string> => {
+        const { primaryMuscles } = input;
+        // const userId = getContextVariable("userId"); // Retrieve userId from context
+        // const userFullName = getContextVariable("userFullName"); // Retrieve userId from context
+        const userId = config.configurable?.userId;
+        const userFullName = config.configurable?.userFullName;
+        if (!userId || !userFullName) {
           throw new Error(
-            `No "userId" found in current context. Remember to call "setContextVariable('userId', value)";`
+            `No "userId" or "userFullName" found in current config.";`
           );
         }
-        return this.getStrengthProgress(userId, userFullName, primaryMuscle);
+        return this.getStrengthProgress(userId, userFullName, primaryMuscles);
       },
       {
-        name: "getStrengthProgress",
+        name: "get_strength_progress",
         description:
           "Fetches the latest 5 workouts for a specific primary muscle.",
         schema: toolSchema, // Ensure schema matches expected input

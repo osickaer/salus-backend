@@ -139,33 +139,49 @@ export class ChatService {
 
     // return stringResponse;
 
-    // Streaming code for future use
     const jsonStream = (async function* () {
-      let fullResponse = ""; // Track complete response for debugging
-      for await (const [message, _metadata] of stream) {
-        let jsonChunk = {};
-        if (isAIMessageChunk(message) && message.tool_call_chunks?.length) {
-          jsonChunk = {
-            content: message.tool_call_chunks[0].args,
-            chunkSource: "AI_TOOL_CALL",
-            timestamp: new Date().toISOString(), // Optional: add timestamp for debugging
-          };
-        } else {
-          jsonChunk = {
-            content: message.content,
-            chunkSource: "AI",
-            timestamp: new Date().toISOString(), // Optional: add timestamp for debugging
-          };
-          fullResponse += message.content; // Accumulate the response
-        }
+      // let fullResponse = ""; // Track complete response for debugging
+      // // for await (const [message, _metadata] of stream) {
+      // for await (const [message, _metadata] of stream) {
+      //   let jsonChunk: {
+      //     content: string;
+      //     chunkSource: string;
+      //     timestamp: string;
+      //   };
+      //   if (isAIMessageChunk(message) && message.tool_call_chunks?.length) {
+      //     jsonChunk = {
+      //       content: message.tool_call_chunks[0].args,
+      //       chunkSource: "AI_TOOL_CALL",
+      //       timestamp: new Date().toISOString(),
+      //     };
+      //   } else {
+      //     jsonChunk = {
+      //       content: message.content,
+      //       chunkSource: "AI",
+      //       timestamp: new Date().toISOString(),
+      //     };
+      //     fullResponse += message.content;
+      //   }
 
-        yield JSON.stringify(jsonChunk) + "\n";
+      //   // yield JSON.stringify(jsonChunk) + "\n";
+      //   yield message;
+      // }
+
+      for await (const chunk of stream) {
+        const chunkType = chunk[0];
+        const chunkMessage = chunk[1][0];
+        if (chunkType == "messages") {
+          yield chunkMessage;
+        }
+        // else if (chunk[0] == "values") {
+        //   yield chunk[1];
+        // }
       }
 
       // Log complete response at the end
-      console.log("\n=== Complete Response ===");
-      console.log(fullResponse);
-      console.log("======================\n");
+      // console.log("\n=== Complete Response ===");
+      // console.log(fullResponse);
+      // console.log("======================\n");
 
       // Save AI response to database
       // const aiMessage = this.em.create(ChatMessages, {

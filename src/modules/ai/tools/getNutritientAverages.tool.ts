@@ -2,13 +2,17 @@ import { tool } from "@langchain/core/tools";
 import { getContextVariable } from "@langchain/core/context";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "@mikro-orm/postgresql";
+import { LangGraphRunnableConfig } from "@langchain/langgraph";
 
 @Injectable()
 export class GetNutrientAveragesTool {
   constructor(private readonly em: EntityManager) {}
 
   // Function to fetch 2-week average nutrient data
-  async get2WeekAvgNutrients(userId: string, userFullName: string): Promise<string> {
+  async get2WeekAvgNutrients(
+    userId: string,
+    userFullName: string
+  ): Promise<string> {
     try {
       console.log("USERID: ", userId);
       const sql = `SELECT
@@ -28,11 +32,13 @@ export class GetNutrientAveragesTool {
         results[0];
 
       return `
-        ${userFullName}'s 2-week macronutrient consumption averages per day:
-        - ${average_calories} calories
-        - ${average_protein}g protein
-        - ${average_fat}g fat
-        - ${average_carbs}g carbohydrates
+
+${userFullName}'s 2-week macronutrient consumption averages per day:
+- ${average_calories} calories
+- ${average_protein}g protein
+- ${average_fat}g fat
+- ${average_carbs}g carbohydrates
+
       `;
     } catch (error) {
       console.error(`Error retrieving average nutrients: ${error.message}`);
@@ -43,19 +49,22 @@ export class GetNutrientAveragesTool {
   // Define the LangChain tool
   get tool() {
     return tool(
-      async (): Promise<string> => {
-        const userId = getContextVariable("userId"); // Retrieve userId from context
-        const userFullName = getContextVariable("userFullName"); // Retrieve userId from context
-        if (!userId) {
+      async (_, config: LangGraphRunnableConfig): Promise<string> => {
+        // const userId = getContextVariable("userId"); // Retrieve userId from context
+        // const userFullName = getContextVariable("userFullName"); // Retrieve userId from context
+        const userId = config.configurable?.userId;
+        const userFullName = config.configurable?.userFullName;
+        if (!userId || !userFullName) {
           throw new Error(
-            `No "userId" found in current context. Remember to call "setContextVariable('userId', value)";`
+            `No "userId" or "userFullName" found in current config.";`
           );
         }
         return this.get2WeekAvgNutrients(userId, userFullName);
       },
       {
-        name: "getAvgNutrients",
-        description: "Fetches the 2-week average macronutrient data for a user",
+        name: "get_athlete_nutrients",
+        description:
+          "Fetches and summarizes the athlete's previous 2 weeks of meals and nutrient intake.",
         schema: null, // No schema needed
       }
     );

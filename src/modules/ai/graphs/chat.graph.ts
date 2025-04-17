@@ -4,10 +4,11 @@ import {
   END,
   START,
   CompiledStateGraph,
+  LangGraphRunnableConfig,
 } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { BaseChatModel } from "@langchain/core/language_models/chat_models";
-import { Tool } from "@langchain/core/tools";
+import { DynamicTool, StructuredTool, tool, Tool } from "@langchain/core/tools";
 import { ChatOpenAI } from "@langchain/openai";
 import { GetGoalsTool } from "../tools/getGoals.tool";
 import { GetLatestWorkout } from "../tools/getLatestWorkout.tool";
@@ -22,7 +23,9 @@ import { promises as fs } from "fs";
 @Injectable()
 export class ChatGraphService {
   private workflow: any; // Type this better based on StateGraph return type
-  private llm: ChatOpenAI;
+  private toolCallerLlm: ChatOpenAI;
+  private chatLlm: ChatOpenAI;
+  private tools: StructuredTool[];
 
   constructor(
     private readonly em: EntityManager,
@@ -33,27 +36,52 @@ export class ChatGraphService {
     private readonly strengthProgressTool: GetStrengthProgress,
     private readonly latestWorkoutTool: GetLatestWorkout
   ) {
-    this.llm = new ChatOpenAI({
-      model: "gpt-4o-mini",
+    this.toolCallerLlm = new ChatOpenAI({
+      model: "gpt-4o",
       temperature: 0,
+      streaming: false,
+    });
+    this.chatLlm = new ChatOpenAI({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
       streaming: true,
     });
+    this.tools = [
+      this.nutrientTool.tool,
+      this.goalsTool.tool,
+      this.strengthProgressTool.tool,
+      this.latestWorkoutTool.tool,
+    ];
     this.initializeGraph();
   }
 
   private async initializeGraph() {
     // Initialize model with tools
-    const tools = [
-      // this.nutrientTool.tool,
-      this.goalsTool.tool,
-      // this.strengthProgressTool.tool,
-      // this.latestWorkoutTool.tool,
-    ];
 
-    const modelWithTools = this.llm.bindTools(tools);
-    const toolNodeForGraph = new ToolNode(tools);
+    const toolCaller = async (state: typeof MessagesAnnotation.State) => {
+      const { messages } = state;
+      const inputMessages = [
+        new SystemMessage(
+          await fs.readFile("prompts/toolCallerPrompt.md", "utf8")
+        ),
+        ...messages,
+      ];
+      const modelWithTools = this.toolCallerLlm.bindTools(this.tools);
+      const response = await modelWithTools.invoke(inputMessages);
 
-    const shouldContinue = (state: typeof MessagesAnnotation.State) => {
+      if (
+        "tool_calls" in response &&
+        Array.isArray(response.tool_calls) &&
+        response.tool_calls?.length
+      ) {
+        // console.log(response);
+        return { messages: response };
+      } else {
+        return {};
+      }
+    };
+
+    const routeTools = (state: typeof MessagesAnnotation.State) => {
       const { messages } = state;
       const lastMessage = messages[messages.length - 1];
       if (
@@ -61,23 +89,38 @@ export class ChatGraphService {
         Array.isArray(lastMessage.tool_calls) &&
         lastMessage.tool_calls?.length
       ) {
-        return "tools";
+        return "toolExecutor";
       }
-      return END;
+      return "chat";
     };
+
+    const toolExecutor = new ToolNode(this.tools);
 
     const callModel = async (state: typeof MessagesAnnotation.State) => {
       const { messages } = state;
-      const response = await modelWithTools.invoke(messages);
+
+      const inputMessages = [
+        new SystemMessage(await fs.readFile("prompts/salusPrompt2.md", "utf8")),
+        ...messages,
+      ];
+      const response = await this.chatLlm.invoke(inputMessages);
+
       return { messages: response };
     };
 
     const workflow = new StateGraph(MessagesAnnotation)
-      .addNode("agent", callModel)
-      .addNode("tools", toolNodeForGraph)
-      .addEdge(START, "agent")
-      .addConditionalEdges("agent", shouldContinue, ["tools", END])
-      .addEdge("tools", "agent");
+      // .addNode("agent", callModel)
+      // .addNode("tools", toolNodeForGraph)
+      // .addEdge(START, "agent")
+      // .addConditionalEdges("agent", shouldContinue, ["tools", END])
+      // .addEdge("tools", "agent");
+      .addNode("toolCaller", toolCaller)
+      .addNode("toolExecutor", toolExecutor)
+      .addNode("chat", callModel)
+      .addEdge(START, "toolCaller")
+      .addConditionalEdges("toolCaller", routeTools, ["toolExecutor", "chat"])
+      .addEdge("toolExecutor", "chat")
+      .addEdge("chat", END);
 
     this.workflow = workflow.compile();
   }
@@ -87,15 +130,16 @@ export class ChatGraphService {
     userFullName: string,
     userQuery: string
   ) {
-    const systemPrompt = await fs.readFile("prompts/salusPrompt2.md", "utf8");
+    // const systemPrompt = await fs.readFile("prompts/salusPrompt2.md", "utf8");
 
     const messages = [
-      new SystemMessage(systemPrompt),
+      // new SystemMessage(systemPrompt),
       new HumanMessage(userQuery),
     ];
 
     let config = {
-      streamMode: "messages",
+      streamMode: ["messages", "values"],
+      // streamMode: "messages",
       configurable: {
         // thread_id: "1",
         userId: userId,

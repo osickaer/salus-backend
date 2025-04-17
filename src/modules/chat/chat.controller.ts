@@ -52,9 +52,9 @@ export class ChatController {
     @Body("chatTimestamp") chatTimestamp: string
   ): Promise<void> {
     //change back to void
-    // response.setHeader("Content-Type", "text/event-stream");
-    // response.setHeader("Cache-Control", "no-cache");
-    // response.setHeader("Connection", "keep-alive");
+    response.setHeader("Content-Type", "text/event-stream");
+    response.setHeader("Cache-Control", "no-cache");
+    response.setHeader("Connection", "keep-alive");
 
     const userFullName = (await this.UserService.getUserById(req.user.userId))
       .fullName;
@@ -70,6 +70,7 @@ export class ChatController {
       // return stream;
       for await (const chunk of stream) {
         response.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        // response.write(chunk);
       }
     } catch (error) {
       response.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);

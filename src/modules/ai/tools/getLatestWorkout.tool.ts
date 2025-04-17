@@ -3,6 +3,7 @@ import { getContextVariable } from "@langchain/core/context";
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { z } from "zod";
+import { LangGraphRunnableConfig } from "@langchain/langgraph";
 
 @Injectable()
 export class GetLatestWorkout {
@@ -52,7 +53,7 @@ export class GetLatestWorkout {
             workout_date,
           } = data;
 
-          workoutContext += `On ${workout_date}, ${userFullName} did ${exercise_name} for ${duration_minutes} minutes at an intensity of ${intensity} and burned ${calories_burned} calories\n`;
+          workoutContext += `\n\nOn ${workout_date}, ${userFullName} did ${exercise_name} for ${duration_minutes} minutes at an intensity of ${intensity} and burned ${calories_burned} calories\n\n`;
         }
 
       return workoutContext;
@@ -73,23 +74,22 @@ export class GetLatestWorkout {
     });
 
     return tool(
-      async ({
-        workoutType,
-      }: {
-        workoutType: z.infer<typeof toolSchema>["workoutType"];
-      }): Promise<string> => {
-        const userId = getContextVariable("userId"); // Retrieve userId from context
-        const userFullName = getContextVariable("userFullName"); // Retrieve userId from context
-        if (!userId) {
+      async (input, config: LangGraphRunnableConfig): Promise<string> => {
+        const { workoutType } = input;
+        // const userId = getContextVariable("userId"); // Retrieve userId from context
+        // const userFullName = getContextVariable("userFullName"); // Retrieve userId from context
+        const userId = config.configurable?.userId;
+        const userFullName = config.configurable?.userFullName;
+        if (!userId || !userFullName) {
           throw new Error(
-            `No "userId" found in current context. Remember to call "setContextVariable('userId', value)";`
+            `No "userId" or "userFullName" found in current config.";`
           );
         }
         return this.getLatestWorkout(userId, userFullName, workoutType);
       },
       {
-        name: "getLatestWorkout",
-        description: "Fetches the latest workouts for specified workout type.",
+        name: "get_latest_workout",
+        description: "Fetches the latest workout for specified workout type.",
         schema: toolSchema, // Ensure schema matches expected input
       }
     );
