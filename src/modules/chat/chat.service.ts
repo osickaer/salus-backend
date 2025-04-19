@@ -5,6 +5,7 @@ import { ChatMessages } from "src/entities/ChatMessages";
 import { AiService } from "../ai/ai.service";
 import { ChatGraphService } from "../ai/graphs/chat.graph";
 import {
+  AIMessageChunk,
   AIMessage,
   SystemMessage,
   HumanMessage,
@@ -14,7 +15,15 @@ import {
   isToolMessage,
   ToolMessage,
   isAIMessageChunk,
+  trimMessages,
+  BaseMessageChunk,
+  isToolMessageChunk,
 } from "@langchain/core/messages";
+import { ChatOpenAI } from "@langchain/openai";
+import { concat } from "@langchain/core/utils/stream";
+import { appendFileSync } from "fs";
+import { v4 as uuidv4 } from "uuid";
+import { Users } from "src/entities/Users";
 
 @Injectable()
 export class ChatService {
@@ -64,136 +73,215 @@ export class ChatService {
     userId: string,
     userFullName: string,
     conversationId: string,
-    userQuery: string,
-    chatTimestamp: string
+    userQuery: string
   ): Promise<AsyncGenerator<string>> {
-    // Save user query to the database
-    // const newMessage = this.em.create(ChatMessages, {
-    //   conversation: conversationId,
-    //   user: userId,
-    //   message: userQuery,
-    //   role: "user",
-    //   chatTimestamp: new Date(),
-    // });
-    // await this.em.persistAndFlush(newMessage);
+    const conversationMessages = await this.getConversationChatMessages(
+      userId,
+      conversationId
+    );
+    const lcMessages = this.transformToLangChainMessages(conversationMessages);
+    const trimmedMessages = await trimMessages(lcMessages, {
+      maxTokens: 3000,
+      strategy: "last",
+      tokenCounter: new ChatOpenAI({ modelName: "gpt-4" }),
+      startOn: "human",
+    });
 
-    // function stringMessages(messages: BaseMessage[]) {
-    //   let fullmessage = "";
-    //   for (const message of messages) {
-    //     if (isHumanMessage(message)) {
-    //       fullmessage = fullmessage + `User: ${message.content}\n`;
-    //       console.log(`User: ${message.content}`);
-    //     } else if (isAIMessage(message)) {
-    //       const aiMessage = message as AIMessage;
-    //       if (aiMessage.content) {
-    //         fullmessage = fullmessage + `Assistant: ${aiMessage.content}`;
-    //         console.log(`Assistant: ${aiMessage.content}`);
-    //       }
-    //       if (aiMessage.tool_calls) {
-    //         for (const toolCall of aiMessage.tool_calls) {
-    //           fullmessage =
-    //             fullmessage +
-    //             `Tool call: ${toolCall.name}(${JSON.stringify(toolCall.args)})`;
-    //           console.log(
-    //             `Tool call: ${toolCall.name}(${JSON.stringify(toolCall.args)})`
-    //           );
-    //         }
-    //       }
-    //     } else if (isToolMessage(message)) {
-    //       const toolMessage = message as ToolMessage;
-    //       fullmessage =
-    //         fullmessage +
-    //         `${toolMessage.name} tool output: ${toolMessage.content}`;
-    //       console.log(
-    //         `${toolMessage.name} tool output: ${toolMessage.content}`
-    //       );
-    //     }
-    //   }
-
-    //   return fullmessage;
-    // }
-    // Use the chat graph to generate response
     const stream = await this.chatGraphService.generateResponse(
       userId,
       userFullName,
-      userQuery
+      [...trimmedMessages, new HumanMessage(userQuery)]
     );
 
-    // const stringResponse = stringMessages(messages);
+    return this.handleGraphStream(stream, conversationId, userId, userQuery);
+  }
 
-    // For development - simple response handling
-    // let fullResponse = "";
-    // for await (const chunk of response) {
-    //   fullResponse += chunk.content;
-    // }
+  private async *handleGraphStream(
+    stream: AsyncIterable<any>,
+    conversationId: string,
+    userId: string,
+    userQuery: string
+  ): AsyncGenerator<string> {
+    let fullResponse = "";
+    const messagesToInsert: ChatMessages[] = [];
 
-    // Save AI response to database
-    // const aiMessage = this.em.create(ChatMessages, {
-    //   conversation: conversationId,
-    //   user: userId,
-    //   message: fullResponse,
-    //   role: "assistant",
-    //   chatTimestamp: new Date(),
-    // });
-    // await this.em.persistAndFlush(aiMessage);
+    // Add the user's query message first
+    messagesToInsert.push({
+      chatId: uuidv4(),
+      user: this.em.getReference(Users, userId),
+      conversation: this.em.getReference(Conversations, conversationId),
+      role: "user",
+      chatTimestamp: new Date(),
+      content: userQuery,
+    });
 
-    // return stringResponse;
+    for await (const chunk of stream) {
+      const chunkType = chunk[0];
+      const chunkMessage = chunk[1][0];
 
-    const jsonStream = (async function* () {
-      // let fullResponse = ""; // Track complete response for debugging
-      // // for await (const [message, _metadata] of stream) {
-      // for await (const [message, _metadata] of stream) {
-      //   let jsonChunk: {
-      //     content: string;
-      //     chunkSource: string;
-      //     timestamp: string;
-      //   };
-      //   if (isAIMessageChunk(message) && message.tool_call_chunks?.length) {
-      //     jsonChunk = {
-      //       content: message.tool_call_chunks[0].args,
-      //       chunkSource: "AI_TOOL_CALL",
-      //       timestamp: new Date().toISOString(),
-      //     };
-      //   } else {
-      //     jsonChunk = {
-      //       content: message.content,
-      //       chunkSource: "AI",
-      //       timestamp: new Date().toISOString(),
-      //     };
-      //     fullResponse += message.content;
-      //   }
-
-      //   // yield JSON.stringify(jsonChunk) + "\n";
-      //   yield message;
-      // }
-
-      for await (const chunk of stream) {
-        const chunkType = chunk[0];
-        const chunkMessage = chunk[1][0];
-        if (chunkType == "messages") {
-          yield chunkMessage;
-        }
-        // else if (chunk[0] == "values") {
-        //   yield chunk[1];
-        // }
+      // Handles streaming the tokens to the frontend
+      if (chunkType === "messages") {
+        const result = this.handleMessageChunk(chunkMessage, conversationId);
+        fullResponse += chunkMessage.content;
+        yield result;
       }
+      // Handles gathering the message sto update in the db
+      else if (chunkType === "updates") {
+        const updateMessages = this.handleUpdateChunk(
+          chunk[1],
+          conversationId,
+          userId
+        );
+        messagesToInsert.push(...updateMessages);
+      }
+    }
 
-      // Log complete response at the end
-      // console.log("\n=== Complete Response ===");
-      // console.log(fullResponse);
-      // console.log("======================\n");
+    // Insert all collected messages after streaming is complete
+    if (messagesToInsert.length > 0) {
+      await this.insertMessages(messagesToInsert);
+    }
 
-      // Save AI response to database
-      // const aiMessage = this.em.create(ChatMessages, {
-      //   conversation: conversationId,
-      //   user: userId,
-      //   message: fullResponse,
-      //   role: "assistant",
-      //   chatTimestamp: new Date(),
-      // });
-      // await this.em.persistAndFlush(aiMessage);
-    })();
+    console.log("\n=== Complete Response ===");
+    console.log(fullResponse);
+    console.log("======================\n");
+  }
 
-    return jsonStream;
+  private async insertMessages(messages: any[]) {
+    for (const message of messages) {
+      const chatMessage = this.em.create(ChatMessages, message);
+      await this.em.persistAndFlush(chatMessage);
+    }
+  }
+
+  private handleUpdateChunk(
+    chunkValue: any,
+    conversationId: string,
+    userId: string
+  ): ChatMessages[] {
+    const newMessages = [] as ChatMessages[];
+    appendFileSync(
+      "chunk-debug.log",
+      JSON.stringify(chunkValue, null, 2) + "\n"
+    );
+    for (const [node, values] of Object.entries(chunkValue)) {
+      if (
+        (node == "toolCaller" || node == "chat") &&
+        "messages" in (values as object)
+      ) {
+        const messages = values["messages"] as AIMessage[];
+        const message = messages[0];
+        let newMessage = {
+          chatId: message.id,
+          user: this.em.getReference(Users, userId),
+          conversation: this.em.getReference(Conversations, conversationId),
+          content: message.content.toString(),
+          chatTimestamp: new Date(),
+          inputTokens: BigInt(message.usage_metadata.input_tokens || 0),
+          outputTokens: BigInt(message.usage_metadata.output_tokens || 0),
+        };
+        if (message.tool_calls?.length > 0) {
+          newMessages.push({
+            role: "tool_call",
+            metadata: message.tool_calls,
+            ...newMessage,
+          });
+        } else {
+          newMessages.push({
+            role: "assistant",
+            ...newMessage,
+          });
+        }
+      } else if (node == "toolExecutor" && "messages" in (values as object)) {
+        const messages = values["messages"] as ToolMessage[];
+        for (const message of messages) {
+          newMessages.push({
+            role: "tool_message",
+            chatId: message.tool_call_id,
+            user: this.em.getReference(Users, userId),
+            conversation: this.em.getReference(Conversations, conversationId),
+            content: message.content.toString(),
+            chatTimestamp: new Date(),
+          });
+        }
+      }
+    }
+    return newMessages;
+  }
+
+  private handleMessageChunk(
+    chunkMessage: BaseMessageChunk | BaseMessage,
+    conversationId: string
+  ): string {
+    // appendFileSync(
+    //   "chunk-debug.log",
+    //   JSON.stringify(chunkMessage, null, 2) + "\n\n"
+    // );
+    let jsonChunk = {};
+    if (
+      chunkMessage instanceof BaseMessageChunk &&
+      isAIMessageChunk(chunkMessage) &&
+      chunkMessage.tool_calls?.length > 0
+    ) {
+      jsonChunk = {
+        conversationId: conversationId,
+        role: "tool_call",
+        message: chunkMessage.tool_calls,
+        chatTimestamp: new Date().toISOString(),
+      };
+    } else if (
+      chunkMessage instanceof BaseMessageChunk &&
+      isAIMessageChunk(chunkMessage) &&
+      chunkMessage.tool_call_chunks?.length == 0
+    ) {
+      jsonChunk = {
+        conversationId: conversationId,
+        role: "assistant",
+        message: chunkMessage.content,
+        chatTimestamp: new Date().toISOString(),
+      };
+    } else if (isToolMessage(chunkMessage)) {
+      jsonChunk = {
+        conversationId: conversationId,
+        role: "tool_message",
+        message: chunkMessage.content,
+        chatTimestamp: new Date().toISOString(),
+      };
+    } else {
+      jsonChunk = {
+        conversationId: conversationId,
+        role: "unknown",
+        message: "",
+        chatTimestamp: new Date().toISOString(),
+      };
+    }
+    return JSON.stringify(jsonChunk);
+  }
+
+  private transformToLangChainMessages(
+    chatMessages: ChatMessages[]
+  ): BaseMessage[] {
+    return chatMessages.map((msg) => {
+      if (msg.role === "user") {
+        return new HumanMessage(msg.content || "");
+      } else if (msg.role === "assistant") {
+        return new AIMessage({
+          content: msg.content || "",
+          id: msg.chatId,
+        });
+      } else if (msg.role === "tool_call") {
+        return new AIMessage({
+          content: msg.content || "",
+          id: msg.chatId,
+          tool_calls: msg.metadata,
+        });
+      } else if (msg.role === "tool_message") {
+        return new ToolMessage({
+          content: msg.content || "",
+          tool_call_id: msg.chatId,
+        });
+      }
+      // // Default to HumanMessage if role is unknown
+      // return new HumanMessage(msg.message || "");
+    });
   }
 }

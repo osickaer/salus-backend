@@ -53,7 +53,7 @@ export class GetLatestWorkout {
             workout_date,
           } = data;
 
-          workoutContext += `\n\nOn ${workout_date}, ${userFullName} did ${exercise_name} for ${duration_minutes} minutes at an intensity of ${intensity} and burned ${calories_burned} calories\n\n`;
+          workoutContext += `\nOn ${workout_date}, ${userFullName} did ${exercise_name} for ${duration_minutes} minutes at an intensity of ${intensity} and burned ${calories_burned} calories\n`;
         }
 
       return workoutContext;

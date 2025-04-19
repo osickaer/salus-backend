@@ -20,9 +20,9 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@langchain/core": "^0.3.23",
-    "@langchain/langgraph": "^0.2.33",
-    "@langchain/openai": "^0.3.14",
+    "@langchain/core": "^0.3.45",
+    "@langchain/langgraph": "^0.2.64",
+    "@langchain/openai": "^0.5.5",
     "@mikro-orm/cli": "^6.4.0",
     "@mikro-orm/core": "^6.3.13",
     "@mikro-orm/entity-generator": "^6.4.0",
@@ -44,6 +44,7 @@
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
+    "tiktoken": "^1.0.20",
     "uuid": "^11.0.2"
   },
   "devDependencies": {

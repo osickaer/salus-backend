@@ -36,15 +36,13 @@ export class GetGoalsTool {
       const { weightGoal, bodyGoal, calsGoal, proteinGoal, fatGoal, carbGoal } =
         results[0];
 
-      return `
-      
+      return `  
 Athlete's current goals: ${weightGoal}, ${bodyGoal}
 Athlete's nutrition targets:
 - ${calsGoal} calories
 - ${proteinGoal} protein
 - ${fatGoal} fat
 - ${carbGoal} carbohydrates
-      
 `;
     } catch (error) {
       console.error(`Error retrieving user goals: ${error.message}`);

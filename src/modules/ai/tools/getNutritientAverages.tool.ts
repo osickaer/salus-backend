@@ -32,13 +32,11 @@ export class GetNutrientAveragesTool {
         results[0];
 
       return `
-
 ${userFullName}'s 2-week macronutrient consumption averages per day:
 - ${average_calories} calories
 - ${average_protein}g protein
 - ${average_fat}g fat
 - ${average_carbs}g carbohydrates
-
       `;
     } catch (error) {
       console.error(`Error retrieving average nutrients: ${error.message}`);

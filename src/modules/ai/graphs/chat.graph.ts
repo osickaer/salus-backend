@@ -3,6 +3,7 @@ import {
   MessagesAnnotation,
   END,
   START,
+  messagesStateReducer,
   CompiledStateGraph,
   LangGraphRunnableConfig,
 } from "@langchain/langgraph";
@@ -17,7 +18,11 @@ import { GetNutrientAveragesTool } from "../tools/getNutritientAverages.tool";
 import { Injectable } from "@nestjs/common";
 import { AiService } from "../ai.service";
 import { EntityManager } from "@mikro-orm/postgresql";
-import { SystemMessage, HumanMessage } from "@langchain/core/messages";
+import {
+  SystemMessage,
+  HumanMessage,
+  BaseMessage,
+} from "@langchain/core/messages";
 import { promises as fs } from "fs";
 
 @Injectable()
@@ -25,7 +30,7 @@ export class ChatGraphService {
   private workflow: any; // Type this better based on StateGraph return type
   private toolCallerLlm: ChatOpenAI;
   private chatLlm: ChatOpenAI;
-  private tools: StructuredTool[];
+  private tools: (StructuredTool | DynamicTool)[];
 
   constructor(
     private readonly em: EntityManager,
@@ -37,12 +42,12 @@ export class ChatGraphService {
     private readonly latestWorkoutTool: GetLatestWorkout
   ) {
     this.toolCallerLlm = new ChatOpenAI({
-      model: "gpt-4o",
+      model: "gpt-4.1",
       temperature: 0,
       streaming: false,
     });
     this.chatLlm = new ChatOpenAI({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-mini",
       temperature: 0.2,
       streaming: true,
     });
@@ -75,8 +80,9 @@ export class ChatGraphService {
         response.tool_calls?.length
       ) {
         // console.log(response);
-        return { messages: response };
+        return { messages: [response] };
       } else {
+        console.log("TEST MESSAGE ", response);
         return {};
       }
     };
@@ -105,7 +111,7 @@ export class ChatGraphService {
       ];
       const response = await this.chatLlm.invoke(inputMessages);
 
-      return { messages: response };
+      return { messages: [response] };
     };
 
     const workflow = new StateGraph(MessagesAnnotation)
@@ -128,18 +134,16 @@ export class ChatGraphService {
   async generateResponse(
     userId: string,
     userFullName: string,
-    userQuery: string
+    messages: BaseMessage[]
   ) {
     // const systemPrompt = await fs.readFile("prompts/salusPrompt2.md", "utf8");
 
-    const messages = [
-      // new SystemMessage(systemPrompt),
-      new HumanMessage(userQuery),
-    ];
-
     let config = {
-      streamMode: ["messages", "values"],
+      streamMode: ["messages", "updates"],
       // streamMode: "messages",
+      stream_options: {
+        include_usage: true,
+      },
       configurable: {
         // thread_id: "1",
         userId: userId,

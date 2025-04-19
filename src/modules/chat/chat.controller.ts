@@ -48,8 +48,7 @@ export class ChatController {
     @Request() req,
     @Res() response: Response,
     @Param("conversationId") conversationId: string,
-    @Body("query") query: string,
-    @Body("chatTimestamp") chatTimestamp: string
+    @Body("query") query: string
   ): Promise<void> {
     //change back to void
     response.setHeader("Content-Type", "text/event-stream");
@@ -64,8 +63,7 @@ export class ChatController {
         req.user.userId,
         userFullName,
         conversationId,
-        query,
-        chatTimestamp
+        query
       );
       // return stream;
       for await (const chunk of stream) {

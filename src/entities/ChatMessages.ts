@@ -8,25 +8,31 @@ export class ChatMessages extends CoreEntity {
 
   [PrimaryKeyProp]?: 'chatId';
 
-  @PrimaryKey({ type: 'bigint', generated: 'by default as identity' })
-  chatId!: bigint & Opt;
-
   @ManyToOne({ entity: () => Users, fieldName: 'user_id', updateRule: 'cascade', deleteRule: 'cascade' })
   user!: Users;
 
-  @Property({ columnType: 'timestamp(6)' })
-  chatTimestamp!: Date;
+  @Property({ type: 'datetime', defaultRaw: `(now() AT TIME ZONE 'utc'::text)` })
+  chatTimestamp!: Date & Opt;
 
   @Property({ type: 'text' })
   role!: string;
 
   @Property({ type: 'text', nullable: true })
-  message?: string;
-
-  @Property({ nullable: true })
-  contextViews?: string[];
+  content?: string;
 
   @ManyToOne({ entity: () => Conversations, fieldName: 'conversation_id', updateRule: 'cascade', deleteRule: 'cascade', nullable: true })
   conversation?: Conversations;
+
+  @Property({ type: 'json', columnType: 'json', nullable: true })
+  metadata?: any;
+
+  @PrimaryKey({ type: 'text', defaultRaw: `gen_random_uuid()` })
+  chatId!: string & Opt;
+
+  @Property({ nullable: true })
+  inputTokens?: bigint;
+
+  @Property({ nullable: true })
+  outputTokens?: bigint;
 
 }

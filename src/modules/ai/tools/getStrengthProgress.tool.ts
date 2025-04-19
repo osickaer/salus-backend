@@ -36,7 +36,7 @@ export class GetStrengthProgress {
         return `User ID ${userId} has no macronutrient data recorded.\n`;
       }
 
-      let exerciseContext = `\n\n${userFullName}'s strength progression for ${primaryMuscles} ordered by date descending:\n\n`;
+      let exerciseContext = `\n${userFullName}'s strength progression for ${primaryMuscles} ordered by date descending:\n`;
 
       for (const data of results) {
         const { workout_date, exercise_name, num_sets, avg_reps, avg_weight } =
