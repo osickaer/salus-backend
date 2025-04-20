@@ -86,11 +86,17 @@ export class ChatService {
       tokenCounter: new ChatOpenAI({ modelName: "gpt-4" }),
       startOn: "human",
     });
+    const inputMessages = [...trimmedMessages, new HumanMessage(userQuery)];
+
+    appendFileSync(
+      "chunk-debug.log",
+      JSON.stringify(inputMessages, null, 2) + "\n"
+    );
 
     const stream = await this.chatGraphService.generateResponse(
       userId,
       userFullName,
-      [...trimmedMessages, new HumanMessage(userQuery)]
+      inputMessages
     );
 
     return this.handleGraphStream(stream, conversationId, userId, userQuery);
@@ -159,10 +165,10 @@ export class ChatService {
     userId: string
   ): ChatMessages[] {
     const newMessages = [] as ChatMessages[];
-    appendFileSync(
-      "chunk-debug.log",
-      JSON.stringify(chunkValue, null, 2) + "\n"
-    );
+    // appendFileSync(
+    //   "chunk-debug.log",
+    //   JSON.stringify(chunkValue, null, 2) + "\n"
+    // );
     for (const [node, values] of Object.entries(chunkValue)) {
       if (
         (node == "toolCaller" || node == "chat") &&
@@ -171,18 +177,22 @@ export class ChatService {
         const messages = values["messages"] as AIMessage[];
         const message = messages[0];
         let newMessage = {
-          chatId: message.id,
+          chatId: uuidv4(),
           user: this.em.getReference(Users, userId),
           conversation: this.em.getReference(Conversations, conversationId),
-          content: message.content.toString(),
+          content: message.content ? String(message.content) : null,
           chatTimestamp: new Date(),
           inputTokens: BigInt(message.usage_metadata.input_tokens || 0),
           outputTokens: BigInt(message.usage_metadata.output_tokens || 0),
         };
         if (message.tool_calls?.length > 0) {
+          const metadata = {
+            id: message.id,
+            tool_calls: message.tool_calls,
+          };
           newMessages.push({
             role: "tool_call",
-            metadata: message.tool_calls,
+            metadata: metadata,
             ...newMessage,
           });
         } else {
@@ -194,13 +204,18 @@ export class ChatService {
       } else if (node == "toolExecutor" && "messages" in (values as object)) {
         const messages = values["messages"] as ToolMessage[];
         for (const message of messages) {
+          const metadata = {
+            tool_call_id: message.tool_call_id,
+            name: message.name,
+          };
           newMessages.push({
             role: "tool_message",
-            chatId: message.tool_call_id,
+            chatId: uuidv4(),
             user: this.em.getReference(Users, userId),
             conversation: this.em.getReference(Conversations, conversationId),
-            content: message.content.toString(),
+            content: message.content ? String(message.content) : null,
             chatTimestamp: new Date(),
+            metadata: metadata,
           });
         }
       }
@@ -220,17 +235,6 @@ export class ChatService {
     if (
       chunkMessage instanceof BaseMessageChunk &&
       isAIMessageChunk(chunkMessage) &&
-      chunkMessage.tool_calls?.length > 0
-    ) {
-      jsonChunk = {
-        conversationId: conversationId,
-        role: "tool_call",
-        message: chunkMessage.tool_calls,
-        chatTimestamp: new Date().toISOString(),
-      };
-    } else if (
-      chunkMessage instanceof BaseMessageChunk &&
-      isAIMessageChunk(chunkMessage) &&
       chunkMessage.tool_call_chunks?.length == 0
     ) {
       jsonChunk = {
@@ -239,11 +243,22 @@ export class ChatService {
         message: chunkMessage.content,
         chatTimestamp: new Date().toISOString(),
       };
+    } else if (
+      chunkMessage instanceof BaseMessageChunk &&
+      isAIMessageChunk(chunkMessage) &&
+      chunkMessage.tool_calls?.length > 0
+    ) {
+      jsonChunk = {
+        conversationId: conversationId,
+        role: "tool_call",
+        message: chunkMessage.tool_calls,
+        chatTimestamp: new Date().toISOString(),
+      };
     } else if (isToolMessage(chunkMessage)) {
       jsonChunk = {
         conversationId: conversationId,
         role: "tool_message",
-        message: chunkMessage.content,
+        message: chunkMessage.content.toString(),
         chatTimestamp: new Date().toISOString(),
       };
     } else {
@@ -272,12 +287,13 @@ export class ChatService {
         return new AIMessage({
           content: msg.content || "",
           id: msg.chatId,
-          tool_calls: msg.metadata,
+          tool_calls: msg.metadata.tool_calls,
         });
       } else if (msg.role === "tool_message") {
         return new ToolMessage({
           content: msg.content || "",
-          tool_call_id: msg.chatId,
+          tool_call_id: msg.metadata.tool_call_id,
+          name: msg.metadata.name,
         });
       }
       // // Default to HumanMessage if role is unknown

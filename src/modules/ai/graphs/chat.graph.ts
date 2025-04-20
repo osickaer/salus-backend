@@ -24,6 +24,7 @@ import {
   BaseMessage,
 } from "@langchain/core/messages";
 import { promises as fs } from "fs";
+import { AnswerQuestionTool } from "../tools/answerQuestion.tool";
 
 @Injectable()
 export class ChatGraphService {
@@ -39,10 +40,11 @@ export class ChatGraphService {
     private readonly nutrientTool: GetNutrientAveragesTool,
     private readonly goalsTool: GetGoalsTool,
     private readonly strengthProgressTool: GetStrengthProgress,
-    private readonly latestWorkoutTool: GetLatestWorkout
+    private readonly latestWorkoutTool: GetLatestWorkout,
+    private readonly answerQuestionTool: AnswerQuestionTool
   ) {
     this.toolCallerLlm = new ChatOpenAI({
-      model: "gpt-4.1",
+      model: "gpt-4.1-mini",
       temperature: 0,
       streaming: false,
     });
@@ -56,6 +58,7 @@ export class ChatGraphService {
       this.goalsTool.tool,
       this.strengthProgressTool.tool,
       this.latestWorkoutTool.tool,
+      this.answerQuestionTool.tool,
     ];
     this.initializeGraph();
   }
@@ -73,6 +76,7 @@ export class ChatGraphService {
       ];
       const modelWithTools = this.toolCallerLlm.bindTools(this.tools);
       const response = await modelWithTools.invoke(inputMessages);
+      // console.log("TEST MESSAGE ", response);
 
       if (
         "tool_calls" in response &&
@@ -82,7 +86,6 @@ export class ChatGraphService {
         // console.log(response);
         return { messages: [response] };
       } else {
-        console.log("TEST MESSAGE ", response);
         return {};
       }
     };

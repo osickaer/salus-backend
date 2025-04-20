@@ -7,6 +7,7 @@ import { GetStrengthProgress } from "./tools/getStrengthProgress.tool";
 import { GetLatestWorkout } from "./tools/getLatestWorkout.tool";
 import { LogMealTool } from "./tools/logMeal.tool";
 import { ChatGraphService } from "./graphs/chat.graph";
+import { AnswerQuestionTool } from "./tools/answerQuestion.tool";
 
 @Module({
   controllers: [AiController],
@@ -16,6 +17,7 @@ import { ChatGraphService } from "./graphs/chat.graph";
     GetGoalsTool,
     GetStrengthProgress,
     GetLatestWorkout,
+    AnswerQuestionTool,
     LogMealTool,
     ChatGraphService,
   ],
@@ -25,6 +27,7 @@ import { ChatGraphService } from "./graphs/chat.graph";
     GetGoalsTool,
     GetStrengthProgress,
     GetLatestWorkout,
+    AnswerQuestionTool,
     LogMealTool,
     ChatGraphService,
   ],
