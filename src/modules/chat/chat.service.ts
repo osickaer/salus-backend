@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { EntityManager } from "@mikro-orm/postgresql";
+import { EntityManager, RequestContext } from "@mikro-orm/postgresql";
 import { Conversations } from "src/entities/Conversations";
 import { ChatMessages } from "src/entities/ChatMessages";
 import { AiService } from "../ai/ai.service";
@@ -54,19 +54,26 @@ export class ChatService {
     userId: string,
     conversationId: string
   ): Promise<ChatMessages[]> {
-    const chatMessages = await this.em.find(
-      ChatMessages,
-      { conversation: { conversationId }, user: userId },
-      {
-        orderBy: { chatTimestamp: "ASC" },
-      }
-    );
+    const sql = `
+      SELECT *
+      FROM chat_messages
+      WHERE conversation_id = ?
+      ORDER BY chat_timestamp ASC
+    `;
 
-    // If no conversations are found, return an empty array
-    if (!chatMessages || chatMessages.length === 0) {
-      return []; // Graceful handling for new users
-    }
-    return chatMessages;
+    const em = RequestContext.getEntityManager();
+    console.log(
+      "REQUEST CONTEXT: ",
+      await em
+        .getConnection()
+        .execute(
+          `select current_role, current_setting('request.jwt.claim.sub', true)`
+        )
+    );
+    console.log("CONVERSATION ID", conversationId);
+    return em.getConnection().execute(sql, [conversationId]); // ← no user_id filter!
+
+    // return chatMessages ?? [];
   }
 
   async generateChatResponse(
