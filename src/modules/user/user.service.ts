@@ -10,6 +10,7 @@ export class UserService {
     return "Hello, User!";
   }
 
+  // Shows an example using find
   async getUserById(userId: string): Promise<Users> {
     // Find the user by ID
     const user = await this.em.findOne(Users, { user: userId });
@@ -19,13 +20,16 @@ export class UserService {
     return user;
   }
 
+  // Shows an example using query builder
   async getCurrentBodyWeight(userId: string): Promise<UserBodyWeights> {
     // Find the user by ID
-    const recentWeight = await this.em.findOne(
-      UserBodyWeights,
-      { user: userId },
-      { orderBy: { weightTimestamp: "DESC" } }
-    ); // Order by timestamp descending);
+    const recentWeight = this.em
+      .createQueryBuilder(UserBodyWeights, "w")
+      .where({ user: userId }) // optional
+      .orderBy({ weightTimestamp: "DESC" })
+      .limit(1)
+      .getSingleResult();
+
     if (!recentWeight) {
       throw new NotFoundException(`No weight found for user with ID ${userId}`);
     }
