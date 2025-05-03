@@ -5,7 +5,7 @@ import { AiService } from "./ai.service";
 import { GetGoalsTool } from "./tools/getGoals.tool";
 import { GetStrengthProgress } from "./tools/getStrengthProgress.tool";
 import { GetLatestWorkout } from "./tools/getLatestWorkout.tool";
-import { LogMealTool } from "./tools/logMeal.tool";
+import { GetNutritionalContentTool } from "./tools/getNutritionalContent.tool";
 import { ChatGraphService } from "./graphs/chat.graph";
 import { AnswerQuestionTool } from "./tools/answerQuestion.tool";
 
@@ -18,7 +18,7 @@ import { AnswerQuestionTool } from "./tools/answerQuestion.tool";
     GetStrengthProgress,
     GetLatestWorkout,
     AnswerQuestionTool,
-    LogMealTool,
+    GetNutritionalContentTool,
     ChatGraphService,
   ],
   exports: [
@@ -28,7 +28,7 @@ import { AnswerQuestionTool } from "./tools/answerQuestion.tool";
     GetStrengthProgress,
     GetLatestWorkout,
     AnswerQuestionTool,
-    LogMealTool,
+    GetNutritionalContentTool,
     ChatGraphService,
   ],
 })

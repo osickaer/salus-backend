@@ -27,7 +27,7 @@ export class WorkoutService {
         w.workout_date DESC, w.workout_id DESC;
     `;
 
-    const workouts = await this.em.getConnection().execute(sql, [userId]);
+    const workouts = await this.em.getConnection().execute(sql);
 
     return workouts;
   }
