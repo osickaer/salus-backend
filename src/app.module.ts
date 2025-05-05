@@ -10,6 +10,7 @@ import { UserModule } from "./modules/user/user.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { AiModule } from "./modules/ai/ai.module";
 import { WorkoutModule } from "./modules/workout/workout.module";
+import { SchemaManifestModule } from "./modules/schema-manifest/schema-manifest.module";
 import mikroOrmConfig from "./mikro-orm.config"; // Import the config file
 
 @Module({
@@ -22,6 +23,7 @@ import mikroOrmConfig from "./mikro-orm.config"; // Import the config file
     ChatModule,
     AiModule,
     WorkoutModule,
+    SchemaManifestModule,
   ],
   controllers: [AppController],
   providers: [AppService],

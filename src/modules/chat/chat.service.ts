@@ -149,10 +149,10 @@ export class ChatService {
       }
     }
 
-    // Insert all collected messages after streaming is complete
-    if (messagesToInsert.length > 0) {
-      await this.insertMessages(messagesToInsert);
-    }
+    // // Insert all collected messages after streaming is complete
+    // if (messagesToInsert.length > 0) {
+    //   await this.insertMessages(messagesToInsert);
+    // }
 
     console.log("\n=== Complete Response ===");
     console.log(fullResponse);
