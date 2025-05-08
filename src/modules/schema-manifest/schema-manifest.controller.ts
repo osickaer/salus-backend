@@ -18,7 +18,9 @@ export class SchemaManifestController {
   @Header("Content-Type", "text/plain; charset=utf-8") // 👈 key line
   async getPrompt(): Promise<string> {
     const manifest = await this.manifestSvc.get();
-    return buildLLMPrompt(manifest); // already contains \n
+    const prompt = buildLLMPrompt(manifest);
+    console.log(prompt);
+    return prompt; // already contains \n
   }
 
   /* optional variant that uses the Response object

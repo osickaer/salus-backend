@@ -3,7 +3,7 @@ import { ManifestView } from "../modules/schema-manifest/schema-manifest.types";
 
 export function buildLLMPrompt(manifest: ManifestView[]): string {
   return `
-You are a Postgres SQL planner.  You may query **only** the views listed below.
+You are an expert Postgres SQL writer. You may query **only** the views listed below. Each view is backed by one or more tables with Row-Level Security (RLS) enforced, so you do not need to manually filter by user_id.
 
 ## Views
 ${manifest
@@ -12,12 +12,13 @@ ${manifest
 
 Description: ${v.description ?? "n/a"}
 
-Columns: ${v.columns
-      .map(
-        (c) =>
-          `${c.name} (${c.type})${c.description ? ` - ${c.description}` : ""}`
-      )
-      .join(", ")}
+Columns: 
+${v.columns
+  .map(
+    (c) =>
+      `- ${c.name} (${c.type})${c.description ? ` - ${c.description}` : ""}`
+  )
+  .join(",\n")}
 
 Sample: ${JSON.stringify(v.sample ?? {}, null, 0)}
 `
